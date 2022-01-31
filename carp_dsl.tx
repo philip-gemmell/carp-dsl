@@ -1,0 +1,55 @@
+/* This is a prototype of a domain-specific language for CARP simulations.
+ *
+ * Author: Philip Gemmell
+ * email: philip.gemmell@protonmail.com
+ */
+
+EntityModel:
+    simple_types *= SimpleType
+    entities += Entity
+;
+
+Entity:
+    name=ID '{'
+        properties+=Property
+    '}'
+;
+
+Property:
+    name=ID ':' type=[Type]
+;
+
+Type:
+    SimpleType | Entity
+;
+
+SimpleType:
+    'type' name=ID
+;
+
+Simulation:
+    'Simulation {'
+        properties+=Property
+    '}'
+;
+
+Mesh:
+    domains+=Domain
+;
+
+Domain:
+    HeartDomain | TissueDomain
+;
+
+HeartDomain:
+    properties+=Property
+;
+
+TissueDomain:
+    properties+=Property
+;
+
+// Special rule for comments. Comments start with //
+Comment:
+    /\/\/.*$/
+;

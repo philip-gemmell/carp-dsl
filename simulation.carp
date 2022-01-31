@@ -1,0 +1,68 @@
+Simulation {
+    mesh : Mesh
+    input_file : string
+    output_folder : string
+    bidomain : bool
+    num_cores : int
+    stimulus : Stimulus     // Needs to be linked to mesh in some way, partly for error checking that its valid
+}
+
+Mesh {
+    name : string           // 'path/to/mesh'
+    heart_domains : list    // ['Ventricle', 'Atrium', 'Purkinje']
+    tissue_domains : list
+}
+
+Heart {
+    cell_model : string     // Check to make sure that this is valid
+    tag : list              // Need to check all heart tags are here
+}                           // Should also check that all tags are accounted for by the different tissue types
+                            // or at least think of a warning (count extras as bath?)
+
+Tissue {
+    tag : list
+}
+
+Ventricle {
+    tag : int
+    cell_model : string
+    g_kr : float
+    g_ks_factor : float
+}
+
+Atrium {
+    tag : int
+    cell_model : string
+    conductivity
+}
+
+Muscle {
+    tag : int
+    conductivity : float
+}
+
+Scar {
+    g_all : float
+    g_extracellular : float
+}
+
+Scar_1 {
+    tag: int
+}
+
+Scar_2 {                    // Define new areas of scar?
+    rho : float, float
+    phi : float, float
+    z : float, float
+}
+
+Stimulus {
+    tag_id : int            // Want to define stimulus either by tagged domain, or by UVC or UAC
+    location : string       // 'ventricle' | 'atrium'
+    rho : float, float
+    phi : float, float
+    z : float, float
+    current : float
+    duration : float
+    start : list of float
+}
