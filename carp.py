@@ -27,8 +27,8 @@ class Simulation(object):
     def __init__(self):
         # Mesh specific commands
         self.folder = ""
-        self.size = [1, 1, 1]
-        self.resolution = [100, 100, 100]
+        self.size = [10, 10, 10]
+        self.resolution = 0.1
 
     def __str__(self):
         return "Mesh is saved to {}".format(self.folder)
@@ -39,7 +39,10 @@ class Simulation(object):
                 if cmd.setting.lower() == "size":
                     self.size = [cmd.x, cmd.y, cmd.z]
                 elif cmd.setting.lower() == "resolution":
-                    self.resolution = cmd.resolution
+                    try:
+                        self.resolution = cmd.x
+                    except AttributeError:
+                        pass
             elif cmd.__class__.__name__ == "CreateMesh":
                 # Block which is thin in z direction
                 geom = mesh.Block(size=(self.size[0], self.size[1], self.size[2]),
