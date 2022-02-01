@@ -53,7 +53,7 @@ class Simulation(object):
                            " -Elem3D 0" + \
                            " -fibers.rotEndo 0.0 -fibers.rotEpi 0.0 -fibers.sheetEndo 90.0 -fibers.sheetEpi 90.0" + \
                            " -periodic 0 -periodic_tag 1234 -perturb 0.0"
-                print(cmd_mesh)
+                os.system(cmd_mesh)
 
 
 def main():
