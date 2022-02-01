@@ -40,6 +40,7 @@ class Simulation(object):
                     self.resolution = [cmd.x, cmd.y, cmd.z]
             elif cmd.__class__.__name__ == "CreateMesh":
                 print("Creating mesh...")
+                os.makedirs(cmd.folder)
                 cmd_mesh = "/usr/local/bin/mesher" + \
                            " -size[0] " + str(self.size[0]) + \
                            " -size[1] " + str(self.size[1]) + \
@@ -49,7 +50,7 @@ class Simulation(object):
                            " -resolution[0] " + str(self.resolution[0]) + \
                            " -resolution[1] " + str(self.resolution[1]) + \
                            " -resolution[2] " + str(self.resolution[2]) + \
-                           " -mesh meshes/2022-01-31_SCNzFBgDve/block" + \
+                           " -mesh " + cmd.folder + \
                            " -Elem3D 0" + \
                            " -fibers.rotEndo 0.0 -fibers.rotEpi 0.0 -fibers.sheetEndo 90.0 -fibers.sheetEpi 90.0" + \
                            " -periodic 0 -periodic_tag 1234 -perturb 0.0"
