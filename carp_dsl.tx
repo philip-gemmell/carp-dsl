@@ -1,5 +1,8 @@
 /* This is a prototype of a domain-specific language for CARP simulations.
  *
+ * Where possible, it makes use of CARPutils functions to take advantage of the extant code, and hopefully ensure future
+ * compatability. However, this may not be entirely wise, and it may be best to revert to simpler, hard-coded methods.
+ *
  * Author: Philip Gemmell
  * email: philip.gemmell@protonmail.com
  */
@@ -18,7 +21,7 @@ MeshPrepare:
 ;
 
 SetMesh:
-    "set mesh" setting=MeshSetCmd x=FLOAT "x" y=FLOAT "x" z=FLOAT
+    "set mesh" setting=MeshSetCmd x=FLOAT ("x" y=FLOAT "x" z=FLOAT)?
 ;
 
 MeshSetCmd:

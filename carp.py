@@ -5,6 +5,8 @@ import string
 
 from textx import metamodel_from_file
 
+from carputils import mesh
+
 
 def create_mesh_preprocessor(create_cmd):
     # If no folder is specified for mesh creation, put it in default location
@@ -37,23 +39,17 @@ class Simulation(object):
                 if cmd.setting.lower() == "size":
                     self.size = [cmd.x, cmd.y, cmd.z]
                 elif cmd.setting.lower() == "resolution":
-                    self.resolution = [cmd.x, cmd.y, cmd.z]
+                    self.resolution = cmd.resolution
             elif cmd.__class__.__name__ == "CreateMesh":
-                print("Creating mesh...")
-                cmd_mesh = "/usr/local/bin/mesher" + \
-                           " -size[0] " + str(self.size[0]) + \
-                           " -size[1] " + str(self.size[1]) + \
-                           " -size[2] " + str(self.size[2]) + \
-                           " -bath[0] -0.0 -bath[1] -0.0 -bath[2] -0.0" + \
-                           " -center[0] 0.0 -center[1] 0.0 -center[2] 0.0" + \
-                           " -resolution[0] " + str(self.resolution[0]) + \
-                           " -resolution[1] " + str(self.resolution[1]) + \
-                           " -resolution[2] " + str(self.resolution[2]) + \
-                           " -mesh meshes/2022-01-31_SCNzFBgDve/block" + \
-                           " -Elem3D 0" + \
-                           " -fibers.rotEndo 0.0 -fibers.rotEpi 0.0 -fibers.sheetEndo 90.0 -fibers.sheetEpi 90.0" + \
-                           " -periodic 0 -periodic_tag 1234 -perturb 0.0"
-                print(cmd_mesh)
+                # Block which is thin in z direction
+                geom = mesh.Block(size=(self.size[0], self.size[1], self.size[2]),
+                                  resolution=self.resolution)
+
+                # Set fibre angle to 0, sheet angle to 0
+                geom.set_fibres(0, 0, 90, 90)
+
+                # Generate and return base name
+                meshname = mesh.generate(geom)
 
 
 def main():
