@@ -4,49 +4,33 @@
  * email: philip.gemmell@protonmail.com
  */
 
-EntityModel:
-    simple_types *= SimpleType
-    entities += Entity
+CarpSimulation:
+    "carp_simulation:"
+        commands*=Command
 ;
 
-Entity:
-    name=ID '{'
-        properties+=Property
-    '}'
+Command:
+    MeshPrepare
 ;
 
-Property:
-    name=ID ':' type=[Type]
+MeshPrepare:
+    SetMesh | CreateMesh | UseMesh
 ;
 
-Type:
-    SimpleType | Entity
+SetMesh:
+    "set mesh" setting=MeshSetCmd x=FLOAT "x" y=FLOAT "x" z=FLOAT
 ;
 
-SimpleType:
-    'type' name=ID
+MeshSetCmd:
+    "size" | "resolution"
 ;
 
-Simulation:
-    'Simulation {'
-        properties+=Property
-    '}'
+CreateMesh:
+    "create mesh" ("in folder" folder=STRING)?
 ;
 
-Mesh:
-    domains+=Domain
-;
-
-Domain:
-    HeartDomain | TissueDomain
-;
-
-HeartDomain:
-    properties+=Property
-;
-
-TissueDomain:
-    properties+=Property
+UseMesh:
+    "use mesh at" folder=STRING
 ;
 
 // Special rule for comments. Comments start with //
