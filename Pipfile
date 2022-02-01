@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 textx = "*"
+carputils = {editable = true, git = "https://git.opencarp.org/openCARP/carputils.git"}
 
 [dev-packages]
 ipython = "*"
