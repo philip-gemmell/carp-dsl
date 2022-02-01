@@ -23,34 +23,37 @@ def create_mesh_preprocessor(create_cmd):
         create_cmd.folder = path
 
 
-# def parser():
-#     parser = tools.standard_parser()
-#     group = parser.add_argument_group('experiment specific options')
-#     group.add_argument('--duration',
-#                        type=float,
-#                        default=20.,
-#                        help='Duration of simulation in [ms] (default: 20.)')
-#     group.add_argument('--S1-strength',
-#                        type=float,
-#                        default=20.,
-#                        help='pick transmembrane current stimulus strength in [uA/cm^2] = [pA/pF] considering fixed Cm (default: 20.)')
-#     group.add_argument('--S1-dur',
-#                        type=float,
-#                        default=2.,
-#                        help='pick transmembrane current stimulus duration in [ms] (default: 2.)')
-#     return parser
-#
-#
-# def jobID(args):
-#     """
-#     Generate name of top level output directory.
-#     """
-#     today = date.today()
-#     return '{}_basic_{}'.format(today.isoformat(), args.duration)
+def parser():
+    parser = tools.standard_parser()
+    # group = parser.add_argument_group('experiment specific options')
+    # group.add_argument('--duration',
+    #                    type=float,
+    #                    default=20.,
+    #                    help='Duration of simulation in [ms] (default: 20.)')
+    # group.add_argument('--S1-strength',
+    #                    type=float,
+    #                    default=20.,
+    #                    help='pick transmembrane current stimulus strength in [uA/cm^2] = [pA/pF] considering fixed Cm (default: 20.)')
+    # group.add_argument('--S1-dur',
+    #                    type=float,
+    #                    default=2.,
+    #                    help='pick transmembrane current stimulus duration in [ms] (default: 2.)')
+    return parser
 
 
-# @tools.carpexample(parser, jobID)
-@tools.carpexample()
+def jobID(args):
+    """
+    Generate name of top level output directory.
+    """
+    today = date.today()
+    return '{}_basic'.format(today.isoformat())
+
+
+@tools.carpexample(parser, jobID)
+# @tools.carpexample(tools.standard_parser)
+# @tools.standard_parser
+# @tools.carpexample(tools.standard_parser, jobID)
+# @tools.carpexample()
 class Simulation(object):
 
     def __init__(self):
