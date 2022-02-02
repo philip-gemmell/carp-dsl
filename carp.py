@@ -15,9 +15,12 @@ def create_mesh_preprocessor(create_cmd):
         rnd = ''.join(random.choice(string.ascii_letters) for i in range(10))
 
         # Generate candidate directory name
-        path = os.path.join('meshes', '{}_{}'.format(today, rnd), 'block')
+        path = os.path.join('meshes', '{}_{}'.format(today, rnd))
 
         create_cmd.folder = path
+
+    if not create_cmd.name:
+        create_cmd.name = 'block'
 
 
 def set_mesh_units_preprocessor(set_cmd):
@@ -26,22 +29,45 @@ def set_mesh_units_preprocessor(set_cmd):
         set_cmd.units = "mm"
 
 
+def run_command_preprocessor(run_cmd):
+    # Default to monodomain if simulation type isn't specified
+    if not run_cmd.sim_type:
+        run_cmd.sim_type = "monodomain"
+
+    # Provide default location to save output
+    if not run_cmd.output:
+        today = date.today().isoformat()
+
+        run_cmd.output = "{}_out".format(today)
+        pass
+
+
 class Simulation(object):
 
     def __init__(self):
         # Mesh specific commands
-        self.folder = ""
+        self.mesh_name = ""
         self.size = [1, 1, 1]
         self.resolution = [100, 100, 100]
         self.size_factor = 0.1
         self.resolution_factor = 1000
 
+        # Stimulus commands
+        self.n_stim = 0
+        self.stim_duration = list()
+        self.stim_strength = list()
+        self.stim_location = list()
+        self.stim_size = list()
+
     def __str__(self):
-        return "Mesh is saved to {}".format(self.folder)
+        return "Mesh is saved at {}".format(self.mesh_name)
 
     def interpret(self, model):
+        cmd_func = os.system
         for cmd in model.commands:
-            if cmd.__class__.__name__ == "SetMesh":
+            if cmd.__class__.__name__ == "DryRun":
+                cmd_func = print
+            elif cmd.__class__.__name__ == "SetMesh":
                 if cmd.setting.lower() == "size":
                     self.size = [cmd.x, cmd.y, cmd.z]
 
@@ -60,9 +86,11 @@ class Simulation(object):
 
             elif cmd.__class__.__name__ == "CreateMesh":
                 print("Creating mesh...")
-                os.makedirs(cmd.folder)
-                size = self.size*self.size_factor
-                resolution = self.resolution*self.resolution_factor
+                if not os.path.isdir(cmd.folder):
+                    os.makedirs(cmd.folder)
+                size = [i_size*self.size_factor for i_size in self.size]
+                resolution = [i_res*self.resolution_factor for i_res in self.resolution]
+                self.mesh_name = os.path.join(cmd.folder, cmd.name)
                 cmd_mesh = "/usr/local/bin/mesher" + \
                            " -size[0] " + str(size[0]) + \
                            " -size[1] " + str(size[1]) + \
@@ -72,21 +100,75 @@ class Simulation(object):
                            " -resolution[0] " + str(resolution[0]) + \
                            " -resolution[1] " + str(resolution[1]) + \
                            " -resolution[2] " + str(resolution[2]) + \
-                           " -mesh " + cmd.folder + \
+                           " -mesh " + str(self.mesh_name) + \
                            " -Elem3D 0" + \
                            " -fibers.rotEndo 0.0 -fibers.rotEpi 0.0 -fibers.sheetEndo 90.0 -fibers.sheetEpi 90.0" + \
                            " -periodic 0 -periodic_tag 1234 -perturb 0.0"
-                os.system(cmd_mesh)
+                cmd_func(cmd_mesh)
+
+            elif cmd.__class__.__name__ == "StimulusCommand":
+                self.n_stim = self.n_stim + 1
+                self.stim_duration.append(cmd.duration)
+                self.stim_strength.append(cmd.strength)
+                self.stim_location.append([cmd.loc_x, cmd.loc_y, cmd.loc_z])
+                self.stim_size.append([cmd.size_x, cmd.size_y, cmd.size_x])
+
+            elif cmd.__class__.__name__ == "RunCommand":
+                if cmd.sim_type == "monodomain":
+                    bidomain_flag = "0"
+                elif cmd.sim_type == "bidomain":
+                    bidomain_flag = "1"
+                else:
+                    raise Exception('Improper value passed')
+
+                stim_string = ''
+                for i_stim, (dur, strength, loc, size) in enumerate(zip(self.stim_duration, self.stim_strength,
+                                                                        self.stim_location, self.stim_size)):
+                    stim_string = stim_string +\
+                                  ' -stimulus[{}].name S1'.format(i_stim) + \
+                                  ' -stimulus[{}].stimtype 0'.format(i_stim) + \
+                                  ' -stimulus[{}].strength {}'.format(i_stim, strength) + \
+                                  ' -stimulus[{}].duration {}'.format(i_stim, dur) + \
+                                  ' -stimulus[{}].x0 {}'.format(i_stim, loc[0]) + \
+                                  ' -stimulus[{}].xd {}'.format(i_stim, size[0]) + \
+                                  ' -stimulus[{}].y0 {}'.format(i_stim, loc[1]) + \
+                                  ' -stimulus[{}].yd {}'.format(i_stim, size[1]) + \
+                                  ' -stimulus[{}].z0 {}'.format(i_stim, loc[2]) + \
+                                  ' -stimulus[{}].zd {}'.format(i_stim, size[2])
+
+                carp_cmd = '/usr/local/bin/openCARP' + \
+                           ' -bidomain ' + bidomain_flag +\
+                           ' +F ./basic.par' + \
+                           ' -ellip_use_pt 0' + \
+                           ' -parab_use_pt 0' + \
+                           ' -parab_options_file /usr/local/lib/python3.6/dist-packages/carputils/resources/petsc_options/ilu_cg_opts' + \
+                           ' -ellip_options_file /usr/local/lib/python3.6/dist-packages/carputils/resources/petsc_options/gamg_cg_opts' + \
+                           ' -simID ' + cmd.output + \
+                           ' -meshname ' + self.mesh_name + \
+                           ' -dt 25' + \
+                           ' -tend ' + str(cmd.duration) + \
+                           ' -num_phys_regions 2' + \
+                           ' -phys_region[0].name "Intracellular domain"' + \
+                           ' -phys_region[0].ptype 0' + \
+                           ' -phys_region[0].num_IDs 1' + \
+                           ' -phys_region[0].ID[0] 1' + \
+                           ' -phys_region[1].name "Extracellular domain"' + \
+                           ' -phys_region[1].ptype 1' + \
+                           ' -phys_region[1].num_IDs 1' + \
+                           ' -phys_region[1].ID[0] 1' + \
+                           ' -num_stim ' + str(self.n_stim) + stim_string
+                cmd_func(carp_cmd)
 
 
 def main():
-
     this_folder = os.path.dirname(__file__)
 
     carp_mm = metamodel_from_file(os.path.join(this_folder, 'carp_dsl.tx'), debug=False)
 
     # Register object processor for CreateMesh
     carp_mm.register_obj_processors({'CreateMesh': create_mesh_preprocessor})
+    carp_mm.register_obj_processors({'SetMesh': set_mesh_units_preprocessor})
+    carp_mm.register_obj_processors({'RunCommand': run_command_preprocessor})
 
     basic_usage = carp_mm.model_from_file(os.path.join(this_folder, '01_basic_usage.carp'))
 

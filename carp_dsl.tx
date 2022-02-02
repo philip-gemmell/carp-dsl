@@ -10,7 +10,11 @@ CarpSimulation:
 ;
 
 Command:
-    MeshPrepare
+    MeshPrepare | StimulusCommand | RunCommand | DryRun
+;
+
+DryRun:
+    "dry run"
 ;
 
 MeshPrepare:
@@ -26,15 +30,29 @@ MeshSize:
 ;
 
 MeshSetCmd:
-    "size" | "resolution" | "units"
+    "size" | "resolution" | "units to be"
 ;
 
 CreateMesh:
-    "create mesh" ("named" name=STRING)? ("in folder" folder=STRING)?
+    "create mesh" ("called" name=STRING)? ("in folder" folder=STRING)?
 ;
 
 UseMesh:
     "use mesh at" folder=STRING
+;
+
+StimulusCommand:
+    "stimulate mesh for" duration=FLOAT "ms with" strength=FLOAT "mA"
+    "for region of size (" size_x=FLOAT "," size_y=FLOAT "," size_z=FLOAT ")"
+    "at (" loc_x=FLOAT "," loc_y=FLOAT "," loc_z=FLOAT ")"
+;
+
+RunCommand:
+    "run" (sim_type=SimType)? "simulation for " duration=FLOAT "ms" ("with output to" output=STRING)?
+;
+
+SimType:
+    "monodomain" | "bidomain"
 ;
 
 // Special rule for comments. Comments start with //
