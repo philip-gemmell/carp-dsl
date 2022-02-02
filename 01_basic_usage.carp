@@ -2,6 +2,7 @@
 // https://opencarp.org/documentation/examples/02_ep_tissue/01_basic_usage
 
 carp_simulation:
+    set mesh units mm
     set mesh size 1 x 0.1 x 0.02
     set mesh resolution 100 x 100 x 100
     create mesh

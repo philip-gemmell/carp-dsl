@@ -20,6 +20,12 @@ def create_mesh_preprocessor(create_cmd):
         create_cmd.folder = path
 
 
+def set_mesh_units_preprocessor(set_cmd):
+    # If no mesh units are specified, assume units are mm
+    if not set_cmd.units:
+        set_cmd.units = "mm"
+
+
 class Simulation(object):
 
     def __init__(self):
@@ -27,6 +33,8 @@ class Simulation(object):
         self.folder = ""
         self.size = [1, 1, 1]
         self.resolution = [100, 100, 100]
+        self.size_factor = 0.1
+        self.resolution_factor = 1000
 
     def __str__(self):
         return "Mesh is saved to {}".format(self.folder)
@@ -36,20 +44,34 @@ class Simulation(object):
             if cmd.__class__.__name__ == "SetMesh":
                 if cmd.setting.lower() == "size":
                     self.size = [cmd.x, cmd.y, cmd.z]
+
                 elif cmd.setting.lower() == "resolution":
                     self.resolution = [cmd.x, cmd.y, cmd.z]
+
+                elif cmd.setting.lower() == "units":
+                    # mesher expects size for baths, tissue, etc., to be in units of cm,
+                    # while it expects the resolution to be in units of um.
+                    if cmd.units == "mm":
+                        self.size_factor = 0.1
+                        self.resolution_factor = 100
+                    elif cmd.units == "um":
+                        self.size_factor = 100
+                        self.resolution_factor = 1
+
             elif cmd.__class__.__name__ == "CreateMesh":
                 print("Creating mesh...")
                 os.makedirs(cmd.folder)
+                size = self.size*self.size_factor
+                resolution = self.resolution*self.resolution_factor
                 cmd_mesh = "/usr/local/bin/mesher" + \
-                           " -size[0] " + str(self.size[0]) + \
-                           " -size[1] " + str(self.size[1]) + \
-                           " -size[2] " + str(self.size[2]) + \
+                           " -size[0] " + str(size[0]) + \
+                           " -size[1] " + str(size[1]) + \
+                           " -size[2] " + str(size[2]) + \
                            " -bath[0] -0.0 -bath[1] -0.0 -bath[2] -0.0" + \
                            " -center[0] 0.0 -center[1] 0.0 -center[2] 0.0" + \
-                           " -resolution[0] " + str(self.resolution[0]) + \
-                           " -resolution[1] " + str(self.resolution[1]) + \
-                           " -resolution[2] " + str(self.resolution[2]) + \
+                           " -resolution[0] " + str(resolution[0]) + \
+                           " -resolution[1] " + str(resolution[1]) + \
+                           " -resolution[2] " + str(resolution[2]) + \
                            " -mesh " + cmd.folder + \
                            " -Elem3D 0" + \
                            " -fibers.rotEndo 0.0 -fibers.rotEpi 0.0 -fibers.sheetEndo 90.0 -fibers.sheetEpi 90.0" + \

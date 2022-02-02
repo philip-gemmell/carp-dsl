@@ -18,15 +18,19 @@ MeshPrepare:
 ;
 
 SetMesh:
-    "set mesh" setting=MeshSetCmd x=FLOAT "x" y=FLOAT "x" z=FLOAT
+    "set mesh" setting=MeshSetCmd ((x=FLOAT "x" y=FLOAT "x" z=FLOAT) | (units=MeshSize))
+;
+
+MeshSize:
+    "mm" | "um"
 ;
 
 MeshSetCmd:
-    "size" | "resolution"
+    "size" | "resolution" | "units"
 ;
 
 CreateMesh:
-    "create mesh" ("in folder" folder=STRING)?
+    "create mesh" ("named" name=STRING)? ("in folder" folder=STRING)?
 ;
 
 UseMesh:
