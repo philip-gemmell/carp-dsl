@@ -7,5 +7,7 @@ carp_simulation:
     set mesh size 1 x 0.1 x 0.02
     set mesh resolution 100 x 100 x 100
     create mesh called "block" in folder "meshes"
+
+    use input file "01_basic.par"
     stimulate mesh for 15 ms with 250 mA for region of size (100, 1100, 300) at (-5050, -550, -150)
     run bidomain simulation for 25 ms with output to "output"

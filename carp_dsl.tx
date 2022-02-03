@@ -10,15 +10,19 @@ CarpSimulation:
 ;
 
 Command:
-    MeshPrepare | StimulusCommand | RunCommand | DryRun
+    MeshCommand | PrepareCommand | RunCommand | DryRun
 ;
 
 DryRun:
     "dry run"
 ;
 
-MeshPrepare:
+MeshCommand:
     SetMesh | CreateMesh | UseMesh
+;
+
+PrepareCommand:
+    StimulusCommand | ParameterCommand
 ;
 
 SetMesh:
@@ -41,10 +45,18 @@ UseMesh:
     "use mesh at" folder=STRING
 ;
 
+PrepareCommand:
+    StimulusCommand | ParameterCommand
+;
+
 StimulusCommand:
     "stimulate mesh for" duration=FLOAT "ms with" strength=FLOAT "mA"
     "for region of size (" size_x=FLOAT "," size_y=FLOAT "," size_z=FLOAT ")"
     "at (" loc_x=FLOAT "," loc_y=FLOAT "," loc_z=FLOAT ")"
+;
+
+ParameterCommand:
+    "use input file" param_file=STRING
 ;
 
 RunCommand:

@@ -1,0 +1,18 @@
+# ionic setup
+num_imp_regions = 1 
+
+imp_region[0].im = MBRDR
+
+#electrical setup
+num_stim             =      1 
+
+stimulus[0].name     = "S1"
+stimulus[0].stimtype =      0 
+stimulus[0].strength =    250.0
+stimulus[0].duration =      2.
+stimulus[0].start    =      0.
+
+bidomain    =   0 
+spacedt     =   1.
+timedt      =   1.
+parab_solve =   1

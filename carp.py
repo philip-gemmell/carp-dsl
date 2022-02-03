@@ -59,6 +59,9 @@ class Simulation(object):
         self.stim_location = list()
         self.stim_size = list()
 
+        # Parameter commands
+        self.param_file = ''
+
     def __str__(self):
         return "Mesh is saved at {}".format(self.mesh_name)
 
@@ -67,6 +70,7 @@ class Simulation(object):
         for cmd in model.commands:
             if cmd.__class__.__name__ == "DryRun":
                 cmd_func = print
+
             elif cmd.__class__.__name__ == "SetMesh":
                 if cmd.setting.lower() == "size":
                     self.size = [cmd.x, cmd.y, cmd.z]
@@ -113,6 +117,9 @@ class Simulation(object):
                 self.stim_location.append([cmd.loc_x, cmd.loc_y, cmd.loc_z])
                 self.stim_size.append([cmd.size_x, cmd.size_y, cmd.size_x])
 
+            elif cmd.__class__.__name__ == "ParameterCommand":
+                self.param_file = cmd.param_file
+
             elif cmd.__class__.__name__ == "RunCommand":
                 if cmd.sim_type == "monodomain":
                     bidomain_flag = "0"
@@ -121,6 +128,11 @@ class Simulation(object):
                 else:
                     raise Exception('Improper value passed')
 
+                if self.param_file:
+                    param_string = '+F ' + self.param_file
+                else:
+                    param_string = ''
+                
                 stim_string = ''
                 for i_stim, (dur, strength, loc, size) in enumerate(zip(self.stim_duration, self.stim_strength,
                                                                         self.stim_location, self.stim_size)):
@@ -138,7 +150,7 @@ class Simulation(object):
 
                 carp_cmd = '/usr/local/bin/openCARP' + \
                            ' -bidomain ' + bidomain_flag +\
-                           ' +F ./basic.par' + \
+                           param_string + \
                            ' -ellip_use_pt 0' + \
                            ' -parab_use_pt 0' + \
                            ' -parab_options_file /usr/local/lib/python3.6/dist-packages/carputils/resources/petsc_options/ilu_cg_opts' + \
