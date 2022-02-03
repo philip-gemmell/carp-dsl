@@ -166,9 +166,10 @@ def main():
     carp_mm = metamodel_from_file(os.path.join(this_folder, 'carp_dsl.tx'), debug=False)
 
     # Register object processor for CreateMesh
-    carp_mm.register_obj_processors({'CreateMesh': create_mesh_preprocessor})
-    carp_mm.register_obj_processors({'SetMesh': set_mesh_units_preprocessor})
-    carp_mm.register_obj_processors({'RunCommand': run_command_preprocessor})
+    obj_processors = {'CreateMesh': create_mesh_preprocessor,
+                      'SetMesh': set_mesh_units_preprocessor,
+                      'RunCommand': run_command_preprocessor}
+    carp_mm.register_obj_processors(obj_processors)
 
     basic_usage = carp_mm.model_from_file(os.path.join(this_folder, '01_basic_usage.carp'))
 
