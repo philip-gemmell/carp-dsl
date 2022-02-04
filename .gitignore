@@ -3,3 +3,5 @@
 textx-tutorials/
 *.dot
 __pycache__
+meshes/
+output/
