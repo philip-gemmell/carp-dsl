@@ -1,0 +1,14 @@
+// This is a skeleton to recreate the output for the basic tutorial provided within openCARP at
+// https://opencarp.org/documentation/examples/02_ep_tissue/01_basic_usage
+
+carp_simulation:
+    dry run
+    set mesh units to be mm
+    set mesh size 10 x 0.1 x 0.1
+    set mesh resolution 0.1 x 0.1 x 0.1
+    set mesh centre at (0, 0, 0)
+    create mesh called "block" in folder "meshes"
+
+    use input file "02_stimtest.par"
+    stimulate mesh for 15 ms with 20 pA/pF transmembrane current for region at (-5.05, -0.55, -0.15) mm of size (0.1, 1.1, 0.3) mm
+    run bidomain simulation for 20 ms with output to "output"

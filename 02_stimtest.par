@@ -1,0 +1,39 @@
+meshname = strand 
+
+# ionic setup
+num_imp_regions = 1
+
+imp_region[0].im = MBRDR
+imp_region[0].im_param="APDshorten*8"
+
+#electrical setup
+num_stim             =      3 
+
+stimulus[0].name     = "Left"
+stimulus[0].stimtype =      0 
+stimulus[0].strength =      0.0
+stimulus[0].duration =      2.
+stimulus[0].start    =      2.
+stimulus[0].npls     =      1
+
+stimulus[1].name     = "Right"
+stimulus[1].stimtype =      3
+
+# auxiliary stimulus, mostly unused, but serves as ground 
+# when balancing, covers entire y-z plane of model at x=0
+stimulus[2].name     = "Aux"
+stimulus[2].stimtype =      0
+stimulus[2].strength =      0.
+stimulus[2].x0       =    -10.
+stimulus[2].xd       =     20.
+stimulus[2].y0       =  -5000.
+stimulus[2].yd       =  10000.
+stimulus[2].z0       =  -5000.
+stimulus[2].zd       =  10000.
+
+
+bidomain = 1
+tend    =  5 
+spacedt = 0.1
+timedt = 0.1
+parab_solve = 1
