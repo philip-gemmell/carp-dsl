@@ -6,6 +6,7 @@ carp_simulation:
     set mesh units to be mm
     set mesh size 10 x 1 x 0.2
     set mesh resolution 0.1 x 0.1 x 0.1
+    set mesh centre at (0, 0, 0)
     create mesh called "block" in folder "meshes"
 
     use input file "01_basic.par"
