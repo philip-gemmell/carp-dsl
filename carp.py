@@ -58,7 +58,8 @@ class Simulation(object):
         self.stim_strength = list()
         self.stim_location = list()
         self.stim_size = list()
-        self.stim_factor = 1000         # mesher expects this input to be in um, whereas our default is mm
+        self.stim_loc_factor = 1000     # mesher expects this input to be in um, whereas our default is mm
+        self.stim_size_factor = 1000    # mesher expects this input to be in um, whereas our default is mm
 
         # Parameter commands
         self.param_file = ''
@@ -69,7 +70,6 @@ class Simulation(object):
     def interpret(self, model):
         cmd_func = os.system
         for cmd in model.commands:
-            print(cmd.__class__.__name__)
             if cmd.__class__.__name__ == "DryRun":
                 cmd_func = print
 
@@ -110,15 +110,28 @@ class Simulation(object):
                            " -Elem3D 0" + \
                            " -fibers.rotEndo 0.0 -fibers.rotEpi 0.0 -fibers.sheetEndo 90.0 -fibers.sheetEpi 90.0" + \
                            " -periodic 0 -periodic_tag 1234 -perturb 0.0"
-                print(cmd_mesh)
                 cmd_func(cmd_mesh)
 
             elif cmd.__class__.__name__ == "StimulusCommand":
                 self.n_stim = self.n_stim + 1
                 self.stim_duration.append(cmd.duration)
                 self.stim_strength.append(cmd.strength)
-                self.stim_location.append([cmd.loc_x, cmd.loc_y, cmd.loc_z])
-                self.stim_size.append([cmd.size_x, cmd.size_y, cmd.size_z])
+
+                if cmd.loc_units == "mm":
+                    self.stim_loc_factor = 1000
+                elif cmd.loc_units == "um":
+                    self.stim_loc_factor = 1
+                location = [cmd.loc_x, cmd.loc_y, cmd.loc_z]
+                location = [loc*self.stim_loc_factor for loc in location]
+                self.stim_location.append(location)
+
+                if cmd.size_units == "mm":
+                    self.stim_size_factor = 1000
+                elif cmd.size_units == "um":
+                    self.stim_size_factor = 1
+                size = [cmd.size_x, cmd.size_y, cmd.size_z]
+                size = [s*self.stim_size_factor for s in size]
+                self.stim_size.append(size)
 
             elif cmd.__class__.__name__ == "ParameterCommand":
                 self.param_file = cmd.param_file
@@ -172,7 +185,6 @@ class Simulation(object):
                            ' -phys_region[1].num_IDs 1' + \
                            ' -phys_region[1].ID[0] 1' + \
                            ' -num_stim ' + str(self.n_stim) + stim_string
-                print(carp_cmd)
                 cmd_func(carp_cmd)
 
 
