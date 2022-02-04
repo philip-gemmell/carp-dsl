@@ -49,8 +49,8 @@ class Simulation(object):
         self.mesh_name = ""
         self.size = [1, 1, 1]
         self.resolution = [100, 100, 100]
-        self.size_factor = 0.1
-        self.resolution_factor = 1000
+        self.size_factor = 0.1          # mesher expects this input to be in cm, whereas our default is mm
+        self.resolution_factor = 1000   # mesher expects this input to be in um, whereas our default is mm
 
         # Stimulus commands
         self.n_stim = 0
@@ -58,6 +58,7 @@ class Simulation(object):
         self.stim_strength = list()
         self.stim_location = list()
         self.stim_size = list()
+        self.stim_factor = 1000         # mesher expects this input to be in um, whereas our default is mm
 
         # Parameter commands
         self.param_file = ''
@@ -68,6 +69,7 @@ class Simulation(object):
     def interpret(self, model):
         cmd_func = os.system
         for cmd in model.commands:
+            print(cmd.__class__.__name__)
             if cmd.__class__.__name__ == "DryRun":
                 cmd_func = print
 
@@ -108,6 +110,7 @@ class Simulation(object):
                            " -Elem3D 0" + \
                            " -fibers.rotEndo 0.0 -fibers.rotEpi 0.0 -fibers.sheetEndo 90.0 -fibers.sheetEpi 90.0" + \
                            " -periodic 0 -periodic_tag 1234 -perturb 0.0"
+                print(cmd_mesh)
                 cmd_func(cmd_mesh)
 
             elif cmd.__class__.__name__ == "StimulusCommand":
@@ -115,7 +118,7 @@ class Simulation(object):
                 self.stim_duration.append(cmd.duration)
                 self.stim_strength.append(cmd.strength)
                 self.stim_location.append([cmd.loc_x, cmd.loc_y, cmd.loc_z])
-                self.stim_size.append([cmd.size_x, cmd.size_y, cmd.size_x])
+                self.stim_size.append([cmd.size_x, cmd.size_y, cmd.size_z])
 
             elif cmd.__class__.__name__ == "ParameterCommand":
                 self.param_file = cmd.param_file
@@ -129,10 +132,10 @@ class Simulation(object):
                     raise Exception('Improper value passed')
 
                 if self.param_file:
-                    param_string = '+F ' + self.param_file
+                    param_string = ' +F ./' + self.param_file
                 else:
                     param_string = ''
-                
+
                 stim_string = ''
                 for i_stim, (dur, strength, loc, size) in enumerate(zip(self.stim_duration, self.stim_strength,
                                                                         self.stim_location, self.stim_size)):
@@ -153,8 +156,8 @@ class Simulation(object):
                            param_string + \
                            ' -ellip_use_pt 0' + \
                            ' -parab_use_pt 0' + \
-                           ' -parab_options_file /usr/local/lib/python3.6/dist-packages/carputils/resources/petsc_options/ilu_cg_opts' + \
-                           ' -ellip_options_file /usr/local/lib/python3.6/dist-packages/carputils/resources/petsc_options/gamg_cg_opts' + \
+                           ' -parab_options_file /usr/local/lib/python3.8/dist-packages/carputils/resources/petsc_options/ilu_cg_opts' + \
+                           ' -ellip_options_file /usr/local/lib/python3.8/dist-packages/carputils/resources/petsc_options/gamg_cg_opts' + \
                            ' -simID ' + cmd.output + \
                            ' -meshname ' + self.mesh_name + \
                            ' -dt 25' + \
@@ -169,6 +172,7 @@ class Simulation(object):
                            ' -phys_region[1].num_IDs 1' + \
                            ' -phys_region[1].ID[0] 1' + \
                            ' -num_stim ' + str(self.n_stim) + stim_string
+                print(carp_cmd)
                 cmd_func(carp_cmd)
 
 

@@ -14,7 +14,7 @@ Command:
 ;
 
 DryRun:
-    "dry run"
+    cmd="dry run"
 ;
 
 MeshCommand:
