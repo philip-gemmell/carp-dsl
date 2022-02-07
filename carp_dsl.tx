@@ -27,7 +27,7 @@ PrepareCommand:
 
 SetMesh:
     "set mesh" setting=MeshSetCmd
-    ((x=FLOAT "x" y=FLOAT "x" z=FLOAT) | (units=MeshSize) | ("(" x=FLOAT "," y=FLOAT "," z=FLOAT ")")
+    ((x=FLOAT "x" y=FLOAT "x" z=FLOAT) | (units=MeshSize) | ("(" x=FLOAT "," y=FLOAT "," z=FLOAT ")"))
 ;
 
 MeshSize:
