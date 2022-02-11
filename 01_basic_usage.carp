@@ -9,5 +9,5 @@ carp_simulation:
     create mesh called "01_block" in folder "meshes"
 
     use input file "01_basic.par"
-    stimulate mesh for 15 ms with 20 pA/pF for region at (-5.05, -0.55, -0.15) mm of size (0.1, 1.1, 0.3) mm
+    stimulate mesh at 0 ms for 15 ms with 20 pA/pF for region at (-5.05, -0.55, -0.15) mm of size (0.1, 1.1, 0.3) mm
     run bidomain simulation for 20 ms with output to "output"

@@ -59,6 +59,7 @@ class Simulation(object):
 
         # Stimulus commands
         self.n_stim = 0
+        self.stim_start = list()
         self.stim_duration = list()
         self.stim_strength = list()
         self.stim_location = list()
@@ -144,6 +145,7 @@ class Simulation(object):
 
     def set_stimulus(self, cmd):
         self.n_stim = self.n_stim + 1
+        self.stim_start.append(cmd.start)
         self.stim_duration.append(cmd.duration)
         self.stim_strength.append(cmd.strength)
 
@@ -290,7 +292,7 @@ class Simulation(object):
                     raise Exception('Simulation aborted at user request.')
 
         print('/usr/local/bin/openCARP')
-        for key in cmd_opts:
+        for key in cmd_keys:
             print('  {} {}'.format(key, cmd_opts[key]))
         for key in stim_opts:
             print('  {} {}'.format(key, stim_opts[key]))
