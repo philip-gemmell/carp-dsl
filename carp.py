@@ -2,6 +2,7 @@ from datetime import date
 import random
 import os
 import string
+from itertools import compress
 
 import sys
 
@@ -14,7 +15,7 @@ def create_mesh_preprocessor(create_cmd):
         today = date.today().isoformat()
 
         # Generate a random ASCII string
-        rnd = ''.join(random.choice(string.ascii_letters) for i in range(10))
+        rnd = ''.join(random.choice(string.ascii_letters) for _ in range(10))
 
         # Generate candidate directory name
         path = os.path.join('meshes', '{}_{}'.format(today, rnd))
@@ -161,10 +162,41 @@ class Simulation(object):
         size = [s * self.stim_size_factor for s in size]
         self.stim_size.append(size)
 
+    def parse_input_param_file(self):
+        """ Parse the .par input file
+
+        Check the options provided via the input parameter file to flag for any settings that will conflict with user
+        specified commands
+        """
+
+        with open(self.param_file, 'r') as pFile:
+            lines = pFile.readlines()
+
+        # Remove newline commands, and comment lines (start with #) and empty lines
+        lines = [line.replace('\n', '') for line in lines]
+        lines = [line for line in lines if not line.startswith('#')]
+        lines = [line for line in lines if not line == '']
+
+        # Split and extract the flags and their values, while removing whitespace
+        lines = [line.split('=') for line in lines]
+        lines = [[line_split.strip() for line_split in line] for line in lines]
+
+        lines = [['-'+line[0], line[1]] for line in lines]
+        lines_dict = dict()
+        for line in lines:
+            lines_dict[line[0]] = line[1]
+        return lines_dict
+
     def run_command(self, cmd):
         # Check if data already exists in output location, and abort if so
         if os.path.isdir(cmd.output):
-            raise Exception('Output location already exists - aborting!')
+            continue_chk = input('Output location already exists - do you wish to continue and overwrite (y/n)!')
+            if continue_chk.lower() == 'n':
+                raise Exception('Simulation aborting!')
+            elif continue_chk.lower() == 'y':
+                pass
+            else:
+                raise Exception('Incorrect value given - rewrite to fail more gracefully...')
 
         if cmd.sim_type == "monodomain":
             bidomain_flag = "0"
@@ -188,6 +220,7 @@ class Simulation(object):
                          '-stimulus[{}].z0'.format(i_stim): loc[2],
                          '-stimulus[{}].zd'.format(i_stim): size[2]}
 
+        # TODO: Find out way to determine parab_options_file and ellip_options_file
         cmd_opts = {'-bidomain': bidomain_flag,
                     '-ellip_use_pt': '0',
                     '-parab_use_pt': '0',
@@ -223,6 +256,35 @@ class Simulation(object):
             else:
                 cmd_opts['+F'] = './' + self.param_file
             cmd_keys.insert(cmd_keys.index('-bidomain')+1, '+F')
+            param_opts = self.parse_input_param_file()
+
+            repeated_keys = [True if key in cmd_keys else False for key in param_opts]
+
+            repeated_keys = list(compress(param_opts.keys(), repeated_keys))
+            warning_list = list()
+            for key in repeated_keys:
+                if key == '-num_stim':
+                    warning_list.append('Parameter file defines stimulus currents as:')
+                    for i_stim in range(int(param_opts[key])):
+                        stim_key = '-stimulus[{}].'.format(i_stim)
+                        # warning_list.append('\tName = {}, stimtype = {}, strength = {}, duration = {}, start'.
+                        #                     format(param_opts[stim_key+'name'], param_opts[stim_key+'stimtype'],
+                        #                            param_opts[stim_key+'strength'], param_opts[stim_key+'start']))
+                    warning_list.append('User commands redefine stimulus as:')
+                    for i_stim in range(int(cmd_opts[key])):
+                        stim_key = '-stimulus[{}].'.format(i_stim)
+                        # warning_list.append('\tName = {}, stimtype = {}, strength = {}, duration = {}, start'.
+                        #                     format(stim_opts[stim_key+'name'], stim_opts[stim_key+'stimtype'],
+                        #                            stim_opts[stim_key+'strength'], stim_opts[stim_key+'start']))
+                if cmd_opts[key] != param_opts[key]:
+                    warning_list.append('Parameter file defines {} as {}, input defines it as {}'.
+                                        format(key, param_opts[key], cmd_opts[key]))
+            if warning_list:
+                for warning in warning_list:
+                    print(warning)
+                continue_val = input('Do you wish to continue? (y/n)')
+                if continue_val.lower() == 'n':
+                    raise Exception('Simulation aborted at user request.')
 
         print('/usr/local/bin/openCARP')
         for key in cmd_opts:
