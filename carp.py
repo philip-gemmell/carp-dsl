@@ -3,6 +3,7 @@ import random
 import os
 import string
 from itertools import compress
+import re
 
 import sys
 
@@ -265,17 +266,19 @@ class Simulation(object):
             for key in repeated_keys:
                 if key == '-num_stim':
                     warning_list.append('Parameter file defines stimulus currents as:')
-                    for i_stim in range(int(param_opts[key])):
-                        stim_key = '-stimulus[{}].'.format(i_stim)
-                        # warning_list.append('\tName = {}, stimtype = {}, strength = {}, duration = {}, start'.
-                        #                     format(param_opts[stim_key+'name'], param_opts[stim_key+'stimtype'],
-                        #                            param_opts[stim_key+'strength'], param_opts[stim_key+'start']))
+                    for i_stim in range(int(param_opts['-num_stim'])):
+                        warning_list.append('\tCurrent {}:'.format(i_stim))
+                        stim_match = re.compile('-stim.*[{}]'.format(0))
+                        matched_keys = list(filter(stim_match.match, param_opts.keys()))
+                        for match_key in matched_keys:
+                            warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
                     warning_list.append('User commands redefine stimulus as:')
-                    for i_stim in range(int(cmd_opts[key])):
-                        stim_key = '-stimulus[{}].'.format(i_stim)
-                        # warning_list.append('\tName = {}, stimtype = {}, strength = {}, duration = {}, start'.
-                        #                     format(stim_opts[stim_key+'name'], stim_opts[stim_key+'stimtype'],
-                        #                            stim_opts[stim_key+'strength'], stim_opts[stim_key+'start']))
+                    for i_stim in range(int(cmd_opts['-num_stim'])):
+                        warning_list.append('\tCurrent {}:'.format(i_stim))
+                        stim_match = re.compile('-stim.*[{}]'.format(0))
+                        matched_keys = list(filter(stim_match.match, stim_opts.keys()))
+                        for match_key in matched_keys:
+                            warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))
                 if cmd_opts[key] != param_opts[key]:
                     warning_list.append('Parameter file defines {} as {}, input defines it as {}'.
                                         format(key, param_opts[key], cmd_opts[key]))
