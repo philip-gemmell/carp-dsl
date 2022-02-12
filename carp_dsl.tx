@@ -52,7 +52,8 @@ PrepareCommand:
 
 StimulusCommand:
     "stimulate mesh"
-        ("at" start=FLOAT "ms")
+        ("at" start=FLOAT "ms")?
+        ("every" bcl=FLOAT "ms" ("for" n_pulse=INT "times")?)?
         "for" duration=FLOAT "ms"
         "with" strength=FLOAT "pA/pF"
         "for region at (" loc_x=FLOAT "," loc_y=FLOAT "," loc_z=FLOAT ")" loc_units=MeshSize
