@@ -40,62 +40,6 @@ def run_command_preprocessor(run_cmd):
         pass
 
 
-def check_param_file_processor(model, metamodel):
-    """ Check the parameter file for potential conflicts with user definitions
-
-    Parse any input parameter files, and parse other commands, to see if stimuli are re-defined. If so, warn the user
-    (or potentially offer a solution?)
-    """
-
-    param_opts = dict()
-    stim_opts = dict()
-    for cmd in model.commands:
-        cmd_name = cmd.__class__.__name__
-        if cmd_name == "ParameterCommand":
-            param_opts = parse_param_file(cmd.param_file)
-        elif cmd_name == "StimulusCommand":
-            stim_opts = parse_stimulus_command(cmd)
-
-    # Only need to run this check if param_file is provided
-    if param_opts:
-        if stim_opts:
-            pass
-
-    # param_opts = parse_input_param_file(model.param_file)
-    # if '-num_stim' not in param_opts.keys():
-    #     return None
-    #
-    # repeated_keys = [True if key in cmd_keys else False for key in param_opts]
-    #
-    # repeated_keys = list(compress(param_opts.keys(), repeated_keys))
-    # warning_list = list()
-    # for key in repeated_keys:
-    #     if key == '-num_stim':
-    #         warning_list.append('Parameter file defines stimulus currents as:')
-    #         for i_stim in range(int(param_opts['-num_stim'])):
-    #             warning_list.append('\tCurrent {}:'.format(i_stim))
-    #             stim_match = re.compile('-stim.*[{}]'.format(0))
-    #             matched_keys = list(filter(stim_match.match, param_opts.keys()))
-    #             for match_key in matched_keys:
-    #                 warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
-    #         warning_list.append('User commands redefine stimulus as:')
-    #         for i_stim in range(int(cmd_opts['-num_stim'])):
-    #             warning_list.append('\tCurrent {}:'.format(i_stim))
-    #             stim_match = re.compile('-stim.*[{}]'.format(0))
-    #             matched_keys = list(filter(stim_match.match, stim_opts.keys()))
-    #             for match_key in matched_keys:
-    #                 warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))
-    #     if cmd_opts[key] != param_opts[key]:
-    #         warning_list.append('Parameter file defines {} as {}, manual input defines it as {}'.
-    #                             format(key, param_opts[key], cmd_opts[key]))
-    # if warning_list:
-    #     for warning in warning_list:
-    #         print(warning)
-    #     continue_val = input('Do you wish to continue? (y/n)')
-    #     if continue_val.lower() == 'n':
-    #         raise Exception('Simulation aborted at user request.')
-
-
 def parse_param_file(filename):
     """ Parse the .par input file
 
@@ -180,6 +124,44 @@ def prepare_stimulus_opts(stimulus) -> dict:
         if stim_data.n_pulse is not None:
             stim_dict['-stimulus[{}].npls'.format(i_st)] = stim_data.n_pulse
     return stim_dict
+
+
+def check_param_conflicts(param_file, cmd_opts, stim_opts):
+    """ Function to check what potential incompatibilities are present between user specified options and those given
+    by a parameter file
+    """
+    param_opts = parse_param_file(param_file)
+
+    repeated_keys = [True if key in cmd_opts.keys() else False for key in param_opts]
+
+    repeated_keys = list(compress(param_opts.keys(), repeated_keys))
+    warning_list = list()
+    for key in repeated_keys:
+        if key == '-num_stim':
+            warning_list.append('Parameter file defines stimulus currents as:')
+            for i_stim in range(int(param_opts['-num_stim'])):
+                warning_list.append('\tCurrent {}:'.format(i_stim))
+                stim_match = re.compile('-stim.*[{}]'.format(0))
+                matched_keys = list(filter(stim_match.match, param_opts.keys()))
+                for match_key in matched_keys:
+                    warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
+            warning_list.append('User commands redefine stimulus as:')
+            for i_stim in range(int(cmd_opts['-num_stim'])):
+                warning_list.append('\tCurrent {}:'.format(i_stim))
+                stim_match = re.compile('-stim.*[{}]'.format(0))
+                matched_keys = list(filter(stim_match.match, stim_opts.keys()))
+                for match_key in matched_keys:
+                    warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))
+        if cmd_opts[key] != param_opts[key]:
+            warning_list.append('Parameter file defines {} as {}, input defines it as {}'.
+                                format(key, param_opts[key], cmd_opts[key]))
+    if warning_list:
+        for warning in warning_list:
+            print(warning)
+        continue_val = input('Do you wish to continue? (y/n)')
+        if continue_val.lower() == 'n':
+            raise Exception('Simulation aborted at user request.')
+    return None
 
 
 class Stimulus(object):
@@ -323,83 +305,82 @@ class Simulation(object):
 
         stim_opts = prepare_stimulus_opts(self.stimulus)
 
-        # TODO: Find out way to determine parab_options_file and ellip_options_file
-        cmd_opts = {'-bidomain': bidomain_flag,
-                    '-ellip_use_pt': '0',
-                    '-parab_use_pt': '0',
-                    '-parab_options_file':
-                        '/usr/local/lib/python3.8/dist-packages/carputils/resources/petsc_options/ilu_cg_opts',
-                    '-ellip_options_file':
-                        '/usr/local/lib/python3.8/dist-packages/carputils/resources/petsc_options/gamg_cg_opts',
-                    '-simID': cmd.output,
-                    '-meshname': self.mesh_name,
-                    '-dt': '25',
-                    '-tend': str(cmd.duration),
-                    '-num_phys_regions': '2',
-                    '-phys_region[0].name': '"Intracellular domain"',
-                    '-phys_region[0].ptype': '0',
-                    '-phys_region[0].num_IDs': '1',
-                    '-phys_region[0].ID[0]': '1',
-                    '-phys_region[1].name': '"Extracellular domain"',
-                    '-phys_region[1].ptype': '1',
-                    '-phys_region[1].num_IDs': '1',
-                    '-phys_region[1].ID[0]': '1',
-                    '-num_stim': str(self.n_stim)}
-
-        cmd_keys = list()
-        for key in cmd_opts:
-            cmd_keys.append(key)
-
-        # Want to position param_file as the first option to openCARP, and thus one to be over-ridden against
-        # following commands
+        cmd_opts = dict()
         if self.param_file:
             # TODO: Rewrite this to be OS agnostic re: potential file separators
             if self.param_file.startswith('/'):
                 cmd_opts['+F'] = self.param_file
             else:
                 cmd_opts['+F'] = './' + self.param_file
-            cmd_keys.insert(cmd_keys.index('-bidomain')+1, '+F')
-            param_opts = parse_param_file(self.param_file)
 
-            repeated_keys = [True if key in cmd_keys else False for key in param_opts]
+        # TODO: Find out way to determine parab_options_file and ellip_options_file
+        cmd_opts['-bidomain'] = bidomain_flag
+        cmd_opts['-ellip_use_pt'] = '0'
+        cmd_opts['-parab_use_pt'] = '0'
+        cmd_opts['-parab_options_file'] = \
+            '/usr/local/lib/python3.8/dist-packages/carputils/resources/petsc_options/ilu_cg_opts'
+        cmd_opts['-ellip_options_file'] = \
+            '/usr/local/lib/python3.8/dist-packages/carputils/resources/petsc_options/gamg_cg_opts'
+        cmd_opts['-simID'] = cmd.output
+        cmd_opts['-meshname'] = self.mesh_name
+        cmd_opts['-dt'] = '25'
+        cmd_opts['-tend'] = str(cmd.duration)
+        cmd_opts['-num_phys_regions'] = '2'
+        cmd_opts['-phys_region[0].name'] = '"Intracellular domain"'
+        cmd_opts['-phys_region[0].ptype'] = '0'
+        cmd_opts['-phys_region[0].num_IDs'] = '1'
+        cmd_opts['-phys_region[0].ID[0]'] = '1'
+        cmd_opts['-phys_region[1].name'] = '"Extracellular domain"'
+        cmd_opts['-phys_region[1].ptype'] = '1'
+        cmd_opts['-phys_region[1].num_IDs'] = '1'
+        cmd_opts['-phys_region[1].ID[0]'] = '1'
+        cmd_opts['-num_stim'] = str(self.n_stim)
 
-            repeated_keys = list(compress(param_opts.keys(), repeated_keys))
-            warning_list = list()
-            for key in repeated_keys:
-                if key == '-num_stim':
-                    warning_list.append('Parameter file defines stimulus currents as:')
-                    for i_stim in range(int(param_opts['-num_stim'])):
-                        warning_list.append('\tCurrent {}:'.format(i_stim))
-                        stim_match = re.compile('-stim.*[{}]'.format(0))
-                        matched_keys = list(filter(stim_match.match, param_opts.keys()))
-                        for match_key in matched_keys:
-                            warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
-                    warning_list.append('User commands redefine stimulus as:')
-                    for i_stim in range(int(cmd_opts['-num_stim'])):
-                        warning_list.append('\tCurrent {}:'.format(i_stim))
-                        stim_match = re.compile('-stim.*[{}]'.format(0))
-                        matched_keys = list(filter(stim_match.match, stim_opts.keys()))
-                        for match_key in matched_keys:
-                            warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))
-                if cmd_opts[key] != param_opts[key]:
-                    warning_list.append('Parameter file defines {} as {}, input defines it as {}'.
-                                        format(key, param_opts[key], cmd_opts[key]))
-            if warning_list:
-                for warning in warning_list:
-                    print(warning)
-                continue_val = input('Do you wish to continue? (y/n)')
-                if continue_val.lower() == 'n':
-                    raise Exception('Simulation aborted at user request.')
+        # Want to position param_file as the first option to openCARP, and thus one to be over-ridden against
+        # following commands
+        if self.param_file:
+            check_param_conflicts(self.param_file, cmd_opts, stim_opts)
+            # param_opts = parse_param_file(self.param_file)
+            #
+            # repeated_keys = [True if key in cmd_opts.keys() else False for key in param_opts]
+            #
+            # repeated_keys = list(compress(param_opts.keys(), repeated_keys))
+            # warning_list = list()
+            # for key in repeated_keys:
+            #     if key == '-num_stim':
+            #         warning_list.append('Parameter file defines stimulus currents as:')
+            #         for i_stim in range(int(param_opts['-num_stim'])):
+            #             warning_list.append('\tCurrent {}:'.format(i_stim))
+            #             stim_match = re.compile('-stim.*[{}]'.format(0))
+            #             matched_keys = list(filter(stim_match.match, param_opts.keys()))
+            #             for match_key in matched_keys:
+            #                 warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
+            #         warning_list.append('User commands redefine stimulus as:')
+            #         for i_stim in range(int(cmd_opts['-num_stim'])):
+            #             warning_list.append('\tCurrent {}:'.format(i_stim))
+            #             stim_match = re.compile('-stim.*[{}]'.format(0))
+            #             matched_keys = list(filter(stim_match.match, stim_opts.keys()))
+            #             for match_key in matched_keys:
+            #                 warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))
+            #     if cmd_opts[key] != param_opts[key]:
+            #         warning_list.append('Parameter file defines {} as {}, input defines it as {}'.
+            #                             format(key, param_opts[key], cmd_opts[key]))
+            # if warning_list:
+            #     for warning in warning_list:
+            #         print(warning)
+            #     continue_val = input('Do you wish to continue? (y/n)')
+            #     if continue_val.lower() == 'n':
+            #         raise Exception('Simulation aborted at user request.')
 
         # Print run command regardless of whether it is actually executed
         print('/usr/local/bin/openCARP')
-        for key in cmd_keys:
+        for key in cmd_opts:
             print('  {} {}'.format(key, cmd_opts[key]))
         for key in stim_opts:
             print('  {} {}'.format(key, stim_opts[key]))
 
         if self.run_cmd:
-            opts_str = ['/usr/local/bin/openCARP'] + ['{} {}'.format(key, cmd_opts[key]) for key in cmd_keys] + \
+            opts_str = ['/usr/local/bin/openCARP'] + ['{} {}'.format(key, cmd_opts[key]) for key in cmd_opts] + \
                        ['{} ' '{}'.format(key, stim_opts[key]) for key in stim_opts]
             os.system(' '.join(opts_str))
 
@@ -429,8 +410,8 @@ def main():
 
     carp_mm = metamodel_from_file(os.path.join(this_folder, 'carp_dsl.tx'), debug=False)
 
-    # # Register model processors to check inputs and flag conflicts
-    # carp_mm.register_model_processor(check_param_file_processor)
+    # Register model processors to check inputs and flag conflicts (None identified as useful to be done as
+    # preprocessor rather than during run command as yet)
 
     # Register object processor for CreateMesh to define default values
     obj_processors = {'CreateMesh': create_mesh_preprocessor,
