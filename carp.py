@@ -40,6 +40,103 @@ def run_command_preprocessor(run_cmd):
         pass
 
 
+# def check_param_file_processor(model, metamodel):
+#     """ Check the parameter file for stimulus currents, and compare to user definitions
+#
+#     Parse any input parameter files, and parse other commands, to see if stimuli are re-defined. If so, warn the user
+#     (or potentially offer a solution?)"""
+#
+#     def parse_input_param_file(param_file):
+#         """ Parse the .par input file
+#
+#         Check the options provided via the input parameter file to flag for any settings that will conflict with user
+#         specified commands
+#         """
+#
+#         with open(param_file, 'r') as pFile:
+#             lines = pFile.readlines()
+#
+#         # Remove newline commands, and comment lines (start with #) and empty lines
+#         lines = [line.replace('\n', '') for line in lines]
+#         lines = [line for line in lines if not line.startswith('#')]
+#         lines = [line for line in lines if not line == '']
+#
+#         # Split and extract the flags and their values, while removing whitespace
+#         lines = [line.split('=') for line in lines]
+#         lines = [[line_split.strip() for line_split in line] for line in lines]
+#
+#         lines = [['-'+line[0], line[1]] for line in lines]
+#         lines_dict = dict()
+#         for line in lines:
+#             lines_dict[line[0]] = line[1]
+#         return lines_dict
+#
+#     def parse_manual_commands(manual_commands):
+#         for cmd in manual_commands:
+#             pass
+#         return None
+#
+#     # Only need to run this check if param_file is provided
+#     if not model.param_file:
+#         return None
+
+    # param_opts = parse_input_param_file(model.param_file)
+    # if '-num_stim' not in param_opts.keys():
+    #     return None
+    #
+    # repeated_keys = [True if key in cmd_keys else False for key in param_opts]
+    #
+    # repeated_keys = list(compress(param_opts.keys(), repeated_keys))
+    # warning_list = list()
+    # for key in repeated_keys:
+    #     if key == '-num_stim':
+    #         warning_list.append('Parameter file defines stimulus currents as:')
+    #         for i_stim in range(int(param_opts['-num_stim'])):
+    #             warning_list.append('\tCurrent {}:'.format(i_stim))
+    #             stim_match = re.compile('-stim.*[{}]'.format(0))
+    #             matched_keys = list(filter(stim_match.match, param_opts.keys()))
+    #             for match_key in matched_keys:
+    #                 warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
+    #         warning_list.append('User commands redefine stimulus as:')
+    #         for i_stim in range(int(cmd_opts['-num_stim'])):
+    #             warning_list.append('\tCurrent {}:'.format(i_stim))
+    #             stim_match = re.compile('-stim.*[{}]'.format(0))
+    #             matched_keys = list(filter(stim_match.match, stim_opts.keys()))
+    #             for match_key in matched_keys:
+    #                 warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))
+    #     if cmd_opts[key] != param_opts[key]:
+    #         warning_list.append('Parameter file defines {} as {}, manual input defines it as {}'.
+    #                             format(key, param_opts[key], cmd_opts[key]))
+    # if warning_list:
+    #     for warning in warning_list:
+    #         print(warning)
+    #     continue_val = input('Do you wish to continue? (y/n)')
+    #     if continue_val.lower() == 'n':
+    #         raise Exception('Simulation aborted at user request.')
+
+
+def parse_stimulus_commands(stimulus) -> dict:
+    """ Convert stimulus data into relevant strings """
+    stim_dict = dict()
+    for i_st, stim_data in enumerate(stimulus):
+        stim_dict['-stimulus[{}].name'.format(i_st)] = '"stim"'
+        stim_dict['-stimulus[{}].start'.format(i_st)] = stim_data.start
+        stim_dict['-stimulus[{}].stimtype'.format(i_st)] = 0
+        stim_dict['-stimulus[{}].strength'.format(i_st)] = stim_data.strength
+        stim_dict['-stimulus[{}].duration'.format(i_st)] = stim_data.duration
+        stim_dict['-stimulus[{}].x0'.format(i_st)] = stim_data.location[0]
+        stim_dict['-stimulus[{}].xd'.format(i_st)] = stim_data.size[0]
+        stim_dict['-stimulus[{}].y0'.format(i_st)] = stim_data.location[1]
+        stim_dict['-stimulus[{}].yd'.format(i_st)] = stim_data.size[1]
+        stim_dict['-stimulus[{}].z0'.format(i_st)] = stim_data.location[2]
+        stim_dict['-stimulus[{}].zd'.format(i_st)] = stim_data.size[2]
+        if stim_data.bcl is not None:
+            stim_dict['-stimulus[{}].bcl'.format(i_st)] = stim_data.bcl
+        if stim_data.n_pulse is not None:
+            stim_dict['-stimulus[{}].npls'.format(i_st)] = stim_data.n_pulse
+    return stim_dict
+
+
 class Simulation(object):
 
     class Stimulus(object):
@@ -83,18 +180,26 @@ class Simulation(object):
         if cmd.setting.lower() == "size":
             self.mesh_size = [cmd.x, cmd.y, cmd.z]
             # mesher expects mesh_size for baths, tissue, etc., to be in units of cm
-            if cmd.meshUnits == "mm":
+            if cmd.meshUnits == "cm":
+                self.mesh_size_factor = 1
+            elif cmd.meshUnits == "mm":
                 self.mesh_size_factor = 0.1
             elif cmd.meshUnit == "um":
                 self.mesh_size_factor = 100
+            else:
+                raise Exception('Unrecognised mesh size given')
 
         elif cmd.setting.lower() == "resolution":
             self.mesh_resolution = [cmd.x, cmd.y, cmd.z]
             # mesher expects mesh_resolution to be in units of um.
-            if cmd.meshUnits == "mm":
+            if cmd.meshUnits == "cm":
+                self.mesh_resolution_factor = 10000
+            elif cmd.meshUnits == "mm":
                 self.mesh_resolution_factor = 1000
             elif cmd.meshUnits == "um":
                 self.mesh_resolution_factor = 1
+            else:
+                raise Exception('Unrecognised resolution size given')
 
         elif cmd.setting.lower() == "centre at":
             self.mesh_centre = [cmd.x, cmd.y, cmd.z]
@@ -206,6 +311,8 @@ class Simulation(object):
         return lines_dict
 
     def run_command(self, cmd):
+        """ Process all commands into openCARP suitable format """
+
         # Check if data already exists in output location, and abort if so
         if os.path.isdir(cmd.output):
             continue_chk = input('Output location already exists - do you wish to continue and overwrite (y/n)!')
@@ -223,23 +330,7 @@ class Simulation(object):
         else:
             raise Exception('Improper value passed')
 
-        stim_opts = dict()
-        for i_stim, stim_data in enumerate(self.stimulus):
-            stim_opts['-stimulus[{}].name'.format(i_stim)] = '"stim"'
-            stim_opts['-stimulus[{}].start'.format(i_stim)] = stim_data.start
-            stim_opts['-stimulus[{}].stimtype'.format(i_stim)] = 0
-            stim_opts['-stimulus[{}].strength'.format(i_stim)] = stim_data.strength
-            stim_opts['-stimulus[{}].duration'.format(i_stim)] = stim_data.duration
-            stim_opts['-stimulus[{}].x0'.format(i_stim)] = stim_data.location[0]
-            stim_opts['-stimulus[{}].xd'.format(i_stim)] = stim_data.size[0]
-            stim_opts['-stimulus[{}].y0'.format(i_stim)] = stim_data.location[1]
-            stim_opts['-stimulus[{}].yd'.format(i_stim)] = stim_data.size[1]
-            stim_opts['-stimulus[{}].z0'.format(i_stim)] = stim_data.location[2]
-            stim_opts['-stimulus[{}].zd'.format(i_stim)] = stim_data.size[2]
-            if stim_data.bcl is not None:
-                stim_opts['-stimulus[{}].bcl'.format(i_stim)] = stim_data.bcl
-            if stim_data.n_pulse is not None:
-                stim_opts['-stimulus[{}].npls'.format(i_stim)] = stim_data.n_pulse
+        stim_opts = parse_stimulus_commands(self.stimulus)
 
         # TODO: Find out way to determine parab_options_file and ellip_options_file
         cmd_opts = {'-bidomain': bidomain_flag,
@@ -346,6 +437,9 @@ def main():
     this_folder = os.path.dirname(__file__)
 
     carp_mm = metamodel_from_file(os.path.join(this_folder, 'carp_dsl.tx'), debug=False)
+
+    # # Register model processors to check inputs and flag conflicts
+    # carp_mm.register_model_processor(check_param_file_processor)
 
     # Register object processor for CreateMesh to define default values
     obj_processors = {'CreateMesh': create_mesh_preprocessor,

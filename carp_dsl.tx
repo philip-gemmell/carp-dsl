@@ -31,7 +31,7 @@ SetMesh:
 ;
 
 MeshSize:
-    "mm" | "um"
+    "cm" | "mm" | "um"
 ;
 
 MeshSetCmd:
