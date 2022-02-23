@@ -158,7 +158,7 @@ def check_param_conflicts(param_file, cmd_opts, stim_opts):
     if warning_list:
         for warning in warning_list:
             print(warning)
-        continue_val = input('Do you wish to continue? (y/n)')
+        continue_val = input('Do you wish to continue? (Y/n)') or 'y'
         if continue_val.lower() == 'n':
             raise Exception('Simulation aborted at user request.')
     return None
@@ -288,7 +288,7 @@ class Simulation(object):
 
         # Check if data already exists in output location, and abort if so
         if os.path.isdir(cmd.output):
-            continue_chk = input('Output location already exists - do you wish to continue and overwrite (y/n)!')
+            continue_chk = input('Output location already exists - do you wish to continue and overwrite (Y/n)!') or 'y'
             if continue_chk.lower() == 'n':
                 raise Exception('Simulation aborting!')
             elif continue_chk.lower() == 'y':
@@ -340,37 +340,6 @@ class Simulation(object):
         # following commands
         if self.param_file:
             check_param_conflicts(self.param_file, cmd_opts, stim_opts)
-            # param_opts = parse_param_file(self.param_file)
-            #
-            # repeated_keys = [True if key in cmd_opts.keys() else False for key in param_opts]
-            #
-            # repeated_keys = list(compress(param_opts.keys(), repeated_keys))
-            # warning_list = list()
-            # for key in repeated_keys:
-            #     if key == '-num_stim':
-            #         warning_list.append('Parameter file defines stimulus currents as:')
-            #         for i_stim in range(int(param_opts['-num_stim'])):
-            #             warning_list.append('\tCurrent {}:'.format(i_stim))
-            #             stim_match = re.compile('-stim.*[{}]'.format(0))
-            #             matched_keys = list(filter(stim_match.match, param_opts.keys()))
-            #             for match_key in matched_keys:
-            #                 warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
-            #         warning_list.append('User commands redefine stimulus as:')
-            #         for i_stim in range(int(cmd_opts['-num_stim'])):
-            #             warning_list.append('\tCurrent {}:'.format(i_stim))
-            #             stim_match = re.compile('-stim.*[{}]'.format(0))
-            #             matched_keys = list(filter(stim_match.match, stim_opts.keys()))
-            #             for match_key in matched_keys:
-            #                 warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))
-            #     if cmd_opts[key] != param_opts[key]:
-            #         warning_list.append('Parameter file defines {} as {}, input defines it as {}'.
-            #                             format(key, param_opts[key], cmd_opts[key]))
-            # if warning_list:
-            #     for warning in warning_list:
-            #         print(warning)
-            #     continue_val = input('Do you wish to continue? (y/n)')
-            #     if continue_val.lower() == 'n':
-            #         raise Exception('Simulation aborted at user request.')
 
         # Print run command regardless of whether it is actually executed
         print('/usr/local/bin/openCARP')
