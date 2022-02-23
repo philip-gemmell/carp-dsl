@@ -115,6 +115,32 @@ def run_command_preprocessor(run_cmd):
     #         raise Exception('Simulation aborted at user request.')
 
 
+def parse_param_file(filename):
+    """ Parse the .par input file
+
+    Check the options provided via the input parameter file to flag for any settings that will conflict with user
+    specified commands
+    """
+
+    with open(filename, 'r') as pFile:
+        lines = pFile.readlines()
+
+    # Remove newline commands, and comment lines (start with #) and empty lines
+    lines = [line.replace('\n', '') for line in lines]
+    lines = [line for line in lines if not line.startswith('#')]
+    lines = [line for line in lines if not line == '']
+
+    # Split and extract the flags and their values, while removing whitespace
+    lines = [line.split('=') for line in lines]
+    lines = [[line_split.strip() for line_split in line] for line in lines]
+
+    lines = [['-' + line[0], line[1]] for line in lines]
+    lines_dict = dict()
+    for line in lines:
+        lines_dict[line[0]] = line[1]
+    return lines_dict
+
+
 def parse_stimulus_commands(stimulus) -> dict:
     """ Convert stimulus data into relevant strings """
     stim_dict = dict()
@@ -285,31 +311,6 @@ class Simulation(object):
 
         self.stimulus.append(stim_data)
 
-    def parse_input_param_file(self):
-        """ Parse the .par input file
-
-        Check the options provided via the input parameter file to flag for any settings that will conflict with user
-        specified commands
-        """
-
-        with open(self.param_file, 'r') as pFile:
-            lines = pFile.readlines()
-
-        # Remove newline commands, and comment lines (start with #) and empty lines
-        lines = [line.replace('\n', '') for line in lines]
-        lines = [line for line in lines if not line.startswith('#')]
-        lines = [line for line in lines if not line == '']
-
-        # Split and extract the flags and their values, while removing whitespace
-        lines = [line.split('=') for line in lines]
-        lines = [[line_split.strip() for line_split in line] for line in lines]
-
-        lines = [['-'+line[0], line[1]] for line in lines]
-        lines_dict = dict()
-        for line in lines:
-            lines_dict[line[0]] = line[1]
-        return lines_dict
-
     def run_command(self, cmd):
         """ Process all commands into openCARP suitable format """
 
@@ -368,7 +369,7 @@ class Simulation(object):
             else:
                 cmd_opts['+F'] = './' + self.param_file
             cmd_keys.insert(cmd_keys.index('-bidomain')+1, '+F')
-            param_opts = self.parse_input_param_file()
+            param_opts = parse_param_file(self.param_file)
 
             repeated_keys = [True if key in cmd_keys else False for key in param_opts]
 
