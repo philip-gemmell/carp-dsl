@@ -40,45 +40,26 @@ def run_command_preprocessor(run_cmd):
         pass
 
 
-# def check_param_file_processor(model, metamodel):
-#     """ Check the parameter file for stimulus currents, and compare to user definitions
-#
-#     Parse any input parameter files, and parse other commands, to see if stimuli are re-defined. If so, warn the user
-#     (or potentially offer a solution?)"""
-#
-#     def parse_input_param_file(param_file):
-#         """ Parse the .par input file
-#
-#         Check the options provided via the input parameter file to flag for any settings that will conflict with user
-#         specified commands
-#         """
-#
-#         with open(param_file, 'r') as pFile:
-#             lines = pFile.readlines()
-#
-#         # Remove newline commands, and comment lines (start with #) and empty lines
-#         lines = [line.replace('\n', '') for line in lines]
-#         lines = [line for line in lines if not line.startswith('#')]
-#         lines = [line for line in lines if not line == '']
-#
-#         # Split and extract the flags and their values, while removing whitespace
-#         lines = [line.split('=') for line in lines]
-#         lines = [[line_split.strip() for line_split in line] for line in lines]
-#
-#         lines = [['-'+line[0], line[1]] for line in lines]
-#         lines_dict = dict()
-#         for line in lines:
-#             lines_dict[line[0]] = line[1]
-#         return lines_dict
-#
-#     def parse_manual_commands(manual_commands):
-#         for cmd in manual_commands:
-#             pass
-#         return None
-#
-#     # Only need to run this check if param_file is provided
-#     if not model.param_file:
-#         return None
+def check_param_file_processor(model, metamodel):
+    """ Check the parameter file for potential conflicts with user definitions
+
+    Parse any input parameter files, and parse other commands, to see if stimuli are re-defined. If so, warn the user
+    (or potentially offer a solution?)
+    """
+
+    param_opts = dict()
+    stim_opts = dict()
+    for cmd in model.commands:
+        cmd_name = cmd.__class__.__name__
+        if cmd_name == "ParameterCommand":
+            param_opts = parse_param_file(cmd.param_file)
+        elif cmd_name == "StimulusCommand":
+            stim_opts = parse_stimulus_command(cmd)
+
+    # Only need to run this check if param_file is provided
+    if param_opts:
+        if stim_opts:
+            pass
 
     # param_opts = parse_input_param_file(model.param_file)
     # if '-num_stim' not in param_opts.keys():
@@ -141,7 +122,45 @@ def parse_param_file(filename):
     return lines_dict
 
 
-def parse_stimulus_commands(stimulus) -> dict:
+def parse_stimulus_command(cmd):
+    """Process the data from a StimulusCommand to a Stimulus class"""
+
+    stim_data = Stimulus()
+
+    stim_data.stim_start = cmd.start
+    stim_data.duration = cmd.duration
+    stim_data.strength = cmd.strength
+
+    if cmd.bcl == 0:
+        stim_data.bcl = None
+    else:
+        stim_data.bcl = cmd.bcl
+
+    if cmd.n_pulse == 0:
+        stim_data.n_pulse = None
+    else:
+        stim_data.n_pulse = cmd.n_pulse
+
+    if cmd.loc_units == "mm":
+        stim_data.loc_factor = 1000
+    elif cmd.loc_units == "um":
+        stim_data.loc_factor = 1
+    location = [cmd.loc_x, cmd.loc_y, cmd.loc_z]
+    location = [loc * stim_data.loc_factor for loc in location]
+    stim_data.location = location
+
+    if cmd.size_units == "mm":
+        stim_data.size_factor = 1000
+    elif cmd.size_units == "um":
+        stim_data.size_factor = 1
+    size = [cmd.size_x, cmd.size_y, cmd.size_z]
+    size = [s * stim_data.size_factor for s in size]
+    stim_data.size = size
+
+    return stim_data
+
+
+def prepare_stimulus_opts(stimulus) -> dict:
     """ Convert stimulus data into relevant strings """
     stim_dict = dict()
     for i_st, stim_data in enumerate(stimulus):
@@ -163,20 +182,21 @@ def parse_stimulus_commands(stimulus) -> dict:
     return stim_dict
 
 
-class Simulation(object):
+class Stimulus(object):
+    def __init__(self):
+        self.n_stim = 0
+        self.start = 0.0
+        self.bcl = None
+        self.n_pulse = None
+        self.duration = 0.0
+        self.strength = 0.0
+        self.location = None
+        self.size = None
+        self.loc_factor = 1000     # mesher expects this input to be in um, whereas our default is mm
+        self.size_factor = 1000    # mesher expects this input to be in um, whereas our default is mm
 
-    class Stimulus(object):
-        def __init__(self):
-            self.n_stim = 0
-            self.start = 0.0
-            self.bcl = None
-            self.n_pulse = None
-            self.duration = 0.0
-            self.strength = 0.0
-            self.location = None
-            self.size = None
-            self.loc_factor = 1000     # mesher expects this input to be in um, whereas our default is mm
-            self.size_factor = 1000    # mesher expects this input to be in um, whereas our default is mm
+
+class Simulation(object):
 
     def __init__(self):
         # Mesh specific commands
@@ -277,37 +297,7 @@ class Simulation(object):
 
     def set_stimulus(self, cmd):
         self.n_stim = self.n_stim + 1
-        stim_data = self.Stimulus()
-
-        stim_data.stim_start = cmd.start
-        stim_data.duration = cmd.duration
-        stim_data.strength = cmd.strength
-
-        if cmd.bcl == 0:
-            stim_data.bcl = None
-        else:
-            stim_data.bcl = cmd.bcl
-
-        if cmd.n_pulse == 0:
-            stim_data.n_pulse = None
-        else:
-            stim_data.n_pulse = cmd.n_pulse
-
-        if cmd.loc_units == "mm":
-            stim_data.loc_factor = 1000
-        elif cmd.loc_units == "um":
-            stim_data.loc_factor = 1
-        location = [cmd.loc_x, cmd.loc_y, cmd.loc_z]
-        location = [loc * stim_data.loc_factor for loc in location]
-        stim_data.location = location
-
-        if cmd.size_units == "mm":
-            stim_data.size_factor = 1000
-        elif cmd.size_units == "um":
-            stim_data.size_factor = 1
-        size = [cmd.size_x, cmd.size_y, cmd.size_z]
-        size = [s * stim_data.size_factor for s in size]
-        stim_data.size = size
+        stim_data = parse_stimulus_command(cmd)
 
         self.stimulus.append(stim_data)
 
@@ -331,7 +321,7 @@ class Simulation(object):
         else:
             raise Exception('Improper value passed')
 
-        stim_opts = parse_stimulus_commands(self.stimulus)
+        stim_opts = prepare_stimulus_opts(self.stimulus)
 
         # TODO: Find out way to determine parab_options_file and ellip_options_file
         cmd_opts = {'-bidomain': bidomain_flag,
