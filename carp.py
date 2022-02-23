@@ -48,6 +48,19 @@ def run_command_preprocessor(run_cmd):
 
 class Simulation(object):
 
+    class Stimulus(object):
+        def __init__(self):
+            self.n_stim = 0
+            self.start = 0.0
+            self.bcl = None
+            self.n_pulse = None
+            self.duration = 0.0
+            self.strength = 0.0
+            self.location = None
+            self.size = None
+            self.loc_factor = 1000     # mesher expects this input to be in um, whereas our default is mm
+            self.size_factor = 1000    # mesher expects this input to be in um, whereas our default is mm
+
     def __init__(self):
         # Mesh specific commands
         self.mesh_name = ""
@@ -59,15 +72,7 @@ class Simulation(object):
 
         # Stimulus commands
         self.n_stim = 0
-        self.stim_start = list()
-        self.stim_bcl = list()
-        self.stim_n_pulse = list()
-        self.stim_duration = list()
-        self.stim_strength = list()
-        self.stim_location = list()
-        self.stim_size = list()
-        self.stim_loc_factor = 1000     # mesher expects this input to be in um, whereas our default is mm
-        self.stim_size_factor = 1000    # mesher expects this input to be in um, whereas our default is mm
+        self.stimulus = list()
 
         # Parameter commands
         self.param_file = ''
@@ -147,35 +152,39 @@ class Simulation(object):
 
     def set_stimulus(self, cmd):
         self.n_stim = self.n_stim + 1
-        self.stim_start.append(cmd.start)
-        self.stim_duration.append(cmd.duration)
-        self.stim_strength.append(cmd.strength)
+        stim_data = self.Stimulus()
+
+        stim_data.stim_start = cmd.start
+        stim_data.duration = cmd.duration
+        stim_data.strength = cmd.strength
 
         if cmd.bcl == 0:
-            self.stim_bcl.append(None)
+            stim_data.bcl = None
         else:
-            self.stim_bcl.append(cmd.bcl)
+            stim_data.bcl = cmd.bcl
 
         if cmd.n_pulse == 0:
-            self.stim_n_pulse.append(None)
+            stim_data.n_pulse = None
         else:
-            self.stim_n_pulse.append(cmd.n_pulse)
+            stim_data.n_pulse = cmd.n_pulse
 
         if cmd.loc_units == "mm":
-            self.stim_loc_factor = 1000
+            stim_data.loc_factor = 1000
         elif cmd.loc_units == "um":
-            self.stim_loc_factor = 1
+            stim_data.loc_factor = 1
         location = [cmd.loc_x, cmd.loc_y, cmd.loc_z]
-        location = [loc * self.stim_loc_factor for loc in location]
-        self.stim_location.append(location)
+        location = [loc * stim_data.loc_factor for loc in location]
+        stim_data.location = location
 
         if cmd.size_units == "mm":
-            self.stim_size_factor = 1000
+            stim_data.size_factor = 1000
         elif cmd.size_units == "um":
-            self.stim_size_factor = 1
+            stim_data.size_factor = 1
         size = [cmd.size_x, cmd.size_y, cmd.size_z]
-        size = [s * self.stim_size_factor for s in size]
-        self.stim_size.append(size)
+        size = [s * stim_data.size_factor for s in size]
+        stim_data.size = size
+
+        self.stimulus.append(stim_data)
 
     def parse_input_param_file(self):
         """ Parse the .par input file
@@ -220,30 +229,23 @@ class Simulation(object):
         else:
             raise Exception('Improper value passed')
 
-        # stim_string = ''
         stim_opts = dict()
-        for i_stim, (dur, start, strength, loc, size, bcl, n_pulse) in enumerate(zip(self.stim_duration,
-                                                                                     self.stim_start,
-                                                                                     self.stim_strength,
-                                                                                     self.stim_location,
-                                                                                     self.stim_size,
-                                                                                     self.stim_bcl,
-                                                                                     self.stim_n_pulse)):
+        for i_stim, stim_data in enumerate(self.stimulus):
             stim_opts['-stimulus[{}].name'.format(i_stim)] = '"stim"'
-            stim_opts['-stimulus[{}].start'.format(i_stim)] = start
+            stim_opts['-stimulus[{}].start'.format(i_stim)] = stim_data.start
             stim_opts['-stimulus[{}].stimtype'.format(i_stim)] = 0
-            stim_opts['-stimulus[{}].strength'.format(i_stim)] = strength
-            stim_opts['-stimulus[{}].duration'.format(i_stim)] = dur
-            stim_opts['-stimulus[{}].x0'.format(i_stim)] = loc[0]
-            stim_opts['-stimulus[{}].xd'.format(i_stim)] = size[0]
-            stim_opts['-stimulus[{}].y0'.format(i_stim)] = loc[1]
-            stim_opts['-stimulus[{}].yd'.format(i_stim)] = size[1]
-            stim_opts['-stimulus[{}].z0'.format(i_stim)] = loc[2]
-            stim_opts['-stimulus[{}].zd'.format(i_stim)] = size[2]
-            if bcl is not None:
-                stim_opts['-stimulus[{}].bcl'.format(i_stim)] = bcl
-            if n_pulse is not None:
-                stim_opts['-stimulus[{}].npls'.format(i_stim)] = n_pulse
+            stim_opts['-stimulus[{}].strength'.format(i_stim)] = stim_data.strength
+            stim_opts['-stimulus[{}].duration'.format(i_stim)] = stim_data.duration
+            stim_opts['-stimulus[{}].x0'.format(i_stim)] = stim_data.location[0]
+            stim_opts['-stimulus[{}].xd'.format(i_stim)] = stim_data.size[0]
+            stim_opts['-stimulus[{}].y0'.format(i_stim)] = stim_data.location[1]
+            stim_opts['-stimulus[{}].yd'.format(i_stim)] = stim_data.size[1]
+            stim_opts['-stimulus[{}].z0'.format(i_stim)] = stim_data.location[2]
+            stim_opts['-stimulus[{}].zd'.format(i_stim)] = stim_data.size[2]
+            if stim_data.bcl is not None:
+                stim_opts['-stimulus[{}].bcl'.format(i_stim)] = stim_data.bcl
+            if stim_data.n_pulse is not None:
+                stim_opts['-stimulus[{}].npls'.format(i_stim)] = stim_data.n_pulse
 
         # TODO: Find out way to determine parab_options_file and ellip_options_file
         cmd_opts = {'-bidomain': bidomain_flag,
