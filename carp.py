@@ -27,12 +27,6 @@ def create_mesh_preprocessor(create_cmd):
         create_cmd.name = 'block'
 
 
-def set_mesh_units_preprocessor(set_cmd):
-    # If no mesh units are specified, assume units are mm
-    if not set_cmd.units:
-        set_cmd.units = "mm"
-
-
 def run_command_preprocessor(run_cmd):
     # Default to monodomain if simulation type isn't specified
     if not run_cmd.sim_type:
@@ -88,18 +82,18 @@ class Simulation(object):
     def set_mesh(self, cmd):
         if cmd.setting.lower() == "size":
             self.mesh_size = [cmd.x, cmd.y, cmd.z]
+            # mesher expects mesh_size for baths, tissue, etc., to be in units of cm
+            if cmd.meshUnits == "mm":
+                self.mesh_size_factor = 0.1
+            elif cmd.meshUnit == "um":
+                self.mesh_size_factor = 100
 
         elif cmd.setting.lower() == "resolution":
             self.mesh_resolution = [cmd.x, cmd.y, cmd.z]
-
-        elif cmd.setting.lower() == "units to be":
-            # mesher expects mesh_size for baths, tissue, etc., to be in units of cm,
-            # while it expects the mesh_resolution to be in units of um.
-            if cmd.units == "mm":
-                self.mesh_size_factor = 0.1
+            # mesher expects mesh_resolution to be in units of um.
+            if cmd.meshUnits == "mm":
                 self.mesh_resolution_factor = 1000
-            elif cmd.units == "um":
-                self.mesh_size_factor = 100
+            elif cmd.meshUnits == "um":
                 self.mesh_resolution_factor = 1
 
         elif cmd.setting.lower() == "centre at":
@@ -315,11 +309,13 @@ class Simulation(object):
                 if continue_val.lower() == 'n':
                     raise Exception('Simulation aborted at user request.')
 
+        # Print run command regardless of whether it is actually executed
         print('/usr/local/bin/openCARP')
         for key in cmd_keys:
             print('  {} {}'.format(key, cmd_opts[key]))
         for key in stim_opts:
             print('  {} {}'.format(key, stim_opts[key]))
+
         if self.run_cmd:
             opts_str = ['/usr/local/bin/openCARP'] + ['{} {}'.format(key, cmd_opts[key]) for key in cmd_keys] + \
                        ['{} ' '{}'.format(key, stim_opts[key]) for key in stim_opts]
@@ -351,9 +347,8 @@ def main():
 
     carp_mm = metamodel_from_file(os.path.join(this_folder, 'carp_dsl.tx'), debug=False)
 
-    # Register object processor for CreateMesh
+    # Register object processor for CreateMesh to define default values
     obj_processors = {'CreateMesh': create_mesh_preprocessor,
-                      'SetMesh': set_mesh_units_preprocessor,
                       'RunCommand': run_command_preprocessor}
     carp_mm.register_obj_processors(obj_processors)
 

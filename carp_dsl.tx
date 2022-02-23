@@ -1,7 +1,7 @@
 /* This is a prototype of a domain-specific language for CARP simulations.
  *
  * Author: Philip Gemmell
- * email: philip.gemmell@protonmail.com
+ * Email: philip.gemmell@protonmail.com
  */
 
 CarpSimulation:
@@ -27,7 +27,7 @@ PrepareCommand:
 
 SetMesh:
     "set mesh" setting=MeshSetCmd
-    ((x=FLOAT "x" y=FLOAT "x" z=FLOAT) | (units=MeshSize) | ("(" x=FLOAT "," y=FLOAT "," z=FLOAT ")"))
+    (("(" x=FLOAT "x" y=FLOAT "x" z=FLOAT ")") | ("(" x=FLOAT "," y=FLOAT "," z=FLOAT ")")) meshUnits=MeshSize
 ;
 
 MeshSize:
@@ -35,7 +35,7 @@ MeshSize:
 ;
 
 MeshSetCmd:
-    "size" | "resolution" | "units to be" | "centre at"
+    "size" | "resolution" | "centre at"
 ;
 
 CreateMesh:
@@ -58,7 +58,6 @@ StimulusCommand:
         "with" strength=FLOAT "pA/pF"
         "for region at (" loc_x=FLOAT "," loc_y=FLOAT "," loc_z=FLOAT ")" loc_units=MeshSize
         "of size (" size_x=FLOAT "," size_y=FLOAT "," size_z=FLOAT ")" size_units=MeshSize
-
 ;
 
 ParameterCommand:
