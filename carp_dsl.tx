@@ -22,7 +22,7 @@ MeshCommand:
 ;
 
 PrepareCommand:
-    StimulusCommand | ParameterCommand
+    StimulusCommand | ParamFileCommand | RegionCommand
 ;
 
 SetMesh:
@@ -46,22 +46,30 @@ UseMesh:
     "use mesh at" folder=STRING
 ;
 
-PrepareCommand:
-    StimulusCommand | ParameterCommand
-;
-
 StimulusCommand:
     "stimulate mesh"
         ("at" start=FLOAT "ms")?
         ("every" bcl=FLOAT "ms" ("for" n_pulse=INT "times")?)?
         "for" duration=FLOAT "ms"
         "with" strength=FLOAT "pA/pF"
-        "for region at (" loc_x=FLOAT "," loc_y=FLOAT "," loc_z=FLOAT ")" loc_units=MeshSize
-        "of size (" size_x=FLOAT "," size_y=FLOAT "," size_z=FLOAT ")" size_units=MeshSize
+        "for region" (LocationCommand | region=STRING)
 ;
 
-ParameterCommand:
+ParamFileCommand:
     "use input file" param_file=STRING
+;
+
+RegionCommand:
+    "define region" name=STRING (TagCommand | LocationCommand)
+;
+
+TagCommand:
+    "using tag" tag=INT
+;
+
+LocationCommand:
+    "at ("loc_x=FLOAT "," loc_y=FLOAT "," loc_z=FLOAT ")" loc_units=MeshSize
+    "of size (" size_x=FLOAT "," size_y=FLOAT "," size_z=FLOAT ")" size_units=MeshSize
 ;
 
 RunCommand:
