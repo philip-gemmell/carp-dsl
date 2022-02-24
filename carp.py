@@ -10,160 +10,6 @@ import sys
 from textx import metamodel_from_file
 
 
-def create_mesh_preprocessor(create_cmd):
-    # If no folder is specified for mesh creation, put it in default location
-    if not create_cmd.folder:
-        today = date.today().isoformat()
-
-        # Generate a random ASCII string
-        rnd = ''.join(random.choice(string.ascii_letters) for _ in range(10))
-
-        # Generate candidate directory name
-        path = os.path.join('meshes', '{}_{}'.format(today, rnd))
-
-        create_cmd.folder = path
-
-    if not create_cmd.name:
-        create_cmd.name = 'block'
-
-
-def run_command_preprocessor(run_cmd):
-    # Default to monodomain if simulation type isn't specified
-    if not run_cmd.sim_type:
-        run_cmd.sim_type = "monodomain"
-
-    # Provide default location to save output
-    if not run_cmd.output:
-        today = date.today().isoformat()
-
-        run_cmd.output = "{}_out".format(today)
-        pass
-
-
-def parse_param_file(filename):
-    """ Parse the .par input file
-
-    Check the options provided via the input parameter file to flag for any settings that will conflict with user
-    specified commands
-    """
-
-    with open(filename, 'r') as pFile:
-        lines = pFile.readlines()
-
-    # Remove newline commands, and comment lines (start with #) and empty lines
-    lines = [line.replace('\n', '') for line in lines]
-    lines = [line for line in lines if not line.startswith('#')]
-    lines = [line for line in lines if not line == '']
-
-    # Split and extract the flags and their values, while removing whitespace
-    lines = [line.split('=') for line in lines]
-    lines = [[line_split.strip() for line_split in line] for line in lines]
-
-    lines = [['-' + line[0], line[1]] for line in lines]
-    lines_dict = dict()
-    for line in lines:
-        lines_dict[line[0]] = line[1]
-    return lines_dict
-
-
-def parse_stimulus_command(cmd):
-    """Process the data from a StimulusCommand to a Stimulus class"""
-
-    stim_data = Stimulus()
-
-    stim_data.stim_start = cmd.start
-    stim_data.duration = cmd.duration
-    stim_data.strength = cmd.strength
-
-    if cmd.bcl == 0:
-        stim_data.bcl = None
-    else:
-        stim_data.bcl = cmd.bcl
-
-    if cmd.n_pulse == 0:
-        stim_data.n_pulse = None
-    else:
-        stim_data.n_pulse = cmd.n_pulse
-
-    if cmd.loc_units == "mm":
-        stim_data.loc_factor = 1000
-    elif cmd.loc_units == "um":
-        stim_data.loc_factor = 1
-    location = [cmd.loc_x, cmd.loc_y, cmd.loc_z]
-    location = [loc * stim_data.loc_factor for loc in location]
-    stim_data.location = location
-
-    if cmd.size_units == "mm":
-        stim_data.size_factor = 1000
-    elif cmd.size_units == "um":
-        stim_data.size_factor = 1
-    size = [cmd.size_x, cmd.size_y, cmd.size_z]
-    size = [s * stim_data.size_factor for s in size]
-    stim_data.size = size
-
-    return stim_data
-
-
-def prepare_stimulus_opts(stimulus) -> dict:
-    """ Convert stimulus data into relevant strings """
-    stim_dict = dict()
-    for i_st, stim_data in enumerate(stimulus):
-        stim_dict['-stimulus[{}].name'.format(i_st)] = '"stim"'
-        stim_dict['-stimulus[{}].start'.format(i_st)] = stim_data.start
-        stim_dict['-stimulus[{}].stimtype'.format(i_st)] = 0
-        stim_dict['-stimulus[{}].strength'.format(i_st)] = stim_data.strength
-        stim_dict['-stimulus[{}].duration'.format(i_st)] = stim_data.duration
-        stim_dict['-stimulus[{}].x0'.format(i_st)] = stim_data.location[0]
-        stim_dict['-stimulus[{}].xd'.format(i_st)] = stim_data.size[0]
-        stim_dict['-stimulus[{}].y0'.format(i_st)] = stim_data.location[1]
-        stim_dict['-stimulus[{}].yd'.format(i_st)] = stim_data.size[1]
-        stim_dict['-stimulus[{}].z0'.format(i_st)] = stim_data.location[2]
-        stim_dict['-stimulus[{}].zd'.format(i_st)] = stim_data.size[2]
-        if stim_data.bcl is not None:
-            stim_dict['-stimulus[{}].bcl'.format(i_st)] = stim_data.bcl
-        if stim_data.n_pulse is not None:
-            stim_dict['-stimulus[{}].npls'.format(i_st)] = stim_data.n_pulse
-    return stim_dict
-
-
-def check_param_conflicts(param_file, cmd_opts, stim_opts):
-    """ Function to check what potential incompatibilities are present between user specified options and those given
-    by a parameter file
-    """
-    param_opts = parse_param_file(param_file)
-
-    repeated_keys = [True if key in cmd_opts.keys() else False for key in param_opts]
-
-    repeated_keys = list(compress(param_opts.keys(), repeated_keys))
-    warning_list = list()
-    for key in repeated_keys:
-        if key == '-num_stim':
-            warning_list.append('Parameter file defines stimulus currents as:')
-            for i_stim in range(int(param_opts['-num_stim'])):
-                warning_list.append('\tCurrent {}:'.format(i_stim))
-                stim_match = re.compile('-stim.*[{}]'.format(0))
-                matched_keys = list(filter(stim_match.match, param_opts.keys()))
-                for match_key in matched_keys:
-                    warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
-            warning_list.append('User commands redefine stimulus as:')
-            for i_stim in range(int(cmd_opts['-num_stim'])):
-                warning_list.append('\tCurrent {}:'.format(i_stim))
-                stim_match = re.compile('-stim.*[{}]'.format(0))
-                matched_keys = list(filter(stim_match.match, stim_opts.keys()))
-                for match_key in matched_keys:
-                    warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))
-        if cmd_opts[key] != param_opts[key]:
-            warning_list.append('Parameter file defines {} as {}, input defines it as {}'.
-                                format(key, param_opts[key], cmd_opts[key]))
-    if warning_list:
-        for warning in warning_list:
-            print(warning)
-        continue_val = input('Do you wish to continue? (Y/n)') or 'y'
-        if continue_val.lower() == 'n':
-            raise Exception('Simulation aborted at user request.')
-    return None
-
-
 class Stimulus(object):
     def __init__(self):
         self.n_stim = 0
@@ -288,13 +134,7 @@ class Simulation(object):
 
         # Check if data already exists in output location, and abort if so
         if os.path.isdir(cmd.output):
-            continue_chk = input('Output location already exists - do you wish to continue and overwrite (Y/n)!') or 'y'
-            if continue_chk.lower() == 'n':
-                raise Exception('Simulation aborting!')
-            elif continue_chk.lower() == 'y':
-                pass
-            else:
-                raise Exception('Incorrect value given - rewrite to fail more gracefully...')
+            _check_user_input('Output location already exists - do you wish to continue and overwrite (Y/n)!')
 
         if cmd.sim_type == "monodomain":
             bidomain_flag = "0"
@@ -383,8 +223,8 @@ def main():
     # preprocessor rather than during run command as yet)
 
     # Register object processor for CreateMesh to define default values
-    obj_processors = {'CreateMesh': create_mesh_preprocessor,
-                      'RunCommand': run_command_preprocessor}
+    obj_processors = {'CreateMesh': _preprocessor_create_mesh,
+                      'RunCommand': _preprocessor_run}
     carp_mm.register_obj_processors(obj_processors)
 
     print("Parsing {}".format(os.path.join(this_folder, sys.argv[1])))
@@ -393,6 +233,174 @@ def main():
 
     simulation = Simulation()
     simulation.interpret(example_simulation)
+
+
+def _preprocessor_create_mesh(create_cmd):
+    # If no folder is specified for mesh creation, put it in default location
+    if not create_cmd.folder:
+        today = date.today().isoformat()
+
+        # Generate a random ASCII string
+        rnd = ''.join(random.choice(string.ascii_letters) for _ in range(10))
+
+        # Generate candidate directory name
+        path = os.path.join('meshes', '{}_{}'.format(today, rnd))
+
+        create_cmd.folder = path
+
+    if not create_cmd.name:
+        create_cmd.name = 'block'
+
+
+def _preprocessor_run(run_cmd):
+    # Default to monodomain if simulation type isn't specified
+    if not run_cmd.sim_type:
+        run_cmd.sim_type = "monodomain"
+
+    # Provide default location to save output
+    if not run_cmd.output:
+        today = date.today().isoformat()
+
+        run_cmd.output = "{}_out".format(today)
+        pass
+
+
+def _check_user_input(question: str, default: str = 'y'):
+    """ Quickly check for user input """
+
+    assert default.lower() == 'y' or default.lower() == 'n'
+    continue_check = None
+
+    while continue_check is None:
+        continue_check = input(question) or default
+        if continue_check.lower() == 'n':
+            raise Exception('Simulation aborting!')
+        elif continue_check.lower() == 'y':
+            pass
+        else:
+            continue_check = None
+
+
+def parse_param_file(filename):
+    """ Parse the .par input file
+
+    Check the options provided via the input parameter file to flag for any settings that will conflict with user
+    specified commands
+    """
+
+    with open(filename, 'r') as pFile:
+        lines = pFile.readlines()
+
+    # Remove newline commands, and comment lines (start with #) and empty lines
+    lines = [line.replace('\n', '') for line in lines]
+    lines = [line for line in lines if not line.startswith('#')]
+    lines = [line for line in lines if not line == '']
+
+    # Split and extract the flags and their values, while removing whitespace
+    lines = [line.split('=') for line in lines]
+    lines = [[line_split.strip() for line_split in line] for line in lines]
+
+    lines = [['-' + line[0], line[1]] for line in lines]
+    lines_dict = dict()
+    for line in lines:
+        lines_dict[line[0]] = line[1]
+    return lines_dict
+
+
+def parse_stimulus_command(cmd):
+    """Process the data from a StimulusCommand to a Stimulus class"""
+
+    stim_data = Stimulus()
+
+    stim_data.stim_start = cmd.start
+    stim_data.duration = cmd.duration
+    stim_data.strength = cmd.strength
+
+    if cmd.bcl == 0:
+        stim_data.bcl = None
+    else:
+        stim_data.bcl = cmd.bcl
+
+    if cmd.n_pulse == 0:
+        stim_data.n_pulse = None
+    else:
+        stim_data.n_pulse = cmd.n_pulse
+
+    if cmd.loc_units == "mm":
+        stim_data.loc_factor = 1000
+    elif cmd.loc_units == "um":
+        stim_data.loc_factor = 1
+    location = [cmd.loc_x, cmd.loc_y, cmd.loc_z]
+    location = [loc * stim_data.loc_factor for loc in location]
+    stim_data.location = location
+
+    if cmd.size_units == "mm":
+        stim_data.size_factor = 1000
+    elif cmd.size_units == "um":
+        stim_data.size_factor = 1
+    size = [cmd.size_x, cmd.size_y, cmd.size_z]
+    size = [s * stim_data.size_factor for s in size]
+    stim_data.size = size
+
+    return stim_data
+
+
+def prepare_stimulus_opts(stimulus) -> dict:
+    """ Convert stimulus data into relevant strings """
+    stim_dict = dict()
+    for i_st, stim_data in enumerate(stimulus):
+        stim_dict['-stimulus[{}].name'.format(i_st)] = '"stim"'
+        stim_dict['-stimulus[{}].start'.format(i_st)] = stim_data.start
+        stim_dict['-stimulus[{}].stimtype'.format(i_st)] = 0
+        stim_dict['-stimulus[{}].strength'.format(i_st)] = stim_data.strength
+        stim_dict['-stimulus[{}].duration'.format(i_st)] = stim_data.duration
+        stim_dict['-stimulus[{}].x0'.format(i_st)] = stim_data.location[0]
+        stim_dict['-stimulus[{}].xd'.format(i_st)] = stim_data.size[0]
+        stim_dict['-stimulus[{}].y0'.format(i_st)] = stim_data.location[1]
+        stim_dict['-stimulus[{}].yd'.format(i_st)] = stim_data.size[1]
+        stim_dict['-stimulus[{}].z0'.format(i_st)] = stim_data.location[2]
+        stim_dict['-stimulus[{}].zd'.format(i_st)] = stim_data.size[2]
+        if stim_data.bcl is not None:
+            stim_dict['-stimulus[{}].bcl'.format(i_st)] = stim_data.bcl
+        if stim_data.n_pulse is not None:
+            stim_dict['-stimulus[{}].npls'.format(i_st)] = stim_data.n_pulse
+    return stim_dict
+
+
+def check_param_conflicts(param_file, cmd_opts, stim_opts):
+    """ Function to check what potential incompatibilities are present between user specified options and those given
+    by a parameter file
+    """
+    param_opts = parse_param_file(param_file)
+
+    repeated_keys = [True if key in cmd_opts.keys() else False for key in param_opts]
+
+    repeated_keys = list(compress(param_opts.keys(), repeated_keys))
+    warning_list = list()
+    for key in repeated_keys:
+        if key == '-num_stim':
+            warning_list.append('Parameter file defines stimulus currents as:')
+            for i_stim in range(int(param_opts['-num_stim'])):
+                warning_list.append('\tCurrent {}:'.format(i_stim))
+                stim_match = re.compile('-stim.*[{}]'.format(0))
+                matched_keys = list(filter(stim_match.match, param_opts.keys()))
+                for match_key in matched_keys:
+                    warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
+            warning_list.append('User commands redefine stimulus as:')
+            for i_stim in range(int(cmd_opts['-num_stim'])):
+                warning_list.append('\tCurrent {}:'.format(i_stim))
+                stim_match = re.compile('-stim.*[{}]'.format(0))
+                matched_keys = list(filter(stim_match.match, stim_opts.keys()))
+                for match_key in matched_keys:
+                    warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))
+        if cmd_opts[key] != param_opts[key]:
+            warning_list.append('Parameter file defines {} as {}, input defines it as {}'.
+                                format(key, param_opts[key], cmd_opts[key]))
+    if warning_list:
+        for warning in warning_list:
+            print(warning)
+        _check_user_input('Do you wish to continue? (Y/n)')
+    return None
 
 
 if __name__ == "__main__":
