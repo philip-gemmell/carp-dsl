@@ -52,7 +52,7 @@ StimulusCommand:
         ("every" bcl=FLOAT "ms" ("for" n_pulse=INT "times")?)?
         "for" duration=FLOAT "ms"
         "with" strength=FLOAT "pA/pF"
-        "for region" (LocationCommand | region=STRING)
+        "for region" (loc_cmd=LocationCommand | region=STRING)
 ;
 
 ParamFileCommand:

@@ -10,6 +10,16 @@ import sys
 from textx import metamodel_from_file
 
 
+class Region(object):
+    def __init__(self):
+        self.name = None
+        self.tag = None
+        self.location = None
+        self.size = None
+        self.loc_factor = 1000     # mesher expects this input to be in um, whereas our default is mm
+        self.size_factor = 1000    # mesher expects this input to be in um, whereas our default is mm
+
+
 class Stimulus(object):
     def __init__(self):
         self.n_stim = 0
@@ -35,6 +45,10 @@ class Simulation(object):
         self.mesh_resolution_factor = 1000   # mesher expects this input to be in um, whereas our default is mm
         self.mesh_centre = [0.0, 0.0, 0.0]
 
+        # Region commands
+        self.n_regions = 0
+        self.regions = list()
+
         # Stimulus commands
         self.n_stim = 0
         self.stimulus = list()
@@ -45,10 +59,6 @@ class Simulation(object):
 
     def __str__(self):
         return "Mesh is saved at {}".format(self.mesh_name)
-
-    def set_dry_run(self, cmd):
-        if cmd == "DryRun":
-            self.run_cmd = False
 
     def set_mesh(self, cmd):
         if cmd.setting.lower() == "size":
@@ -129,6 +139,12 @@ class Simulation(object):
 
         self.stimulus.append(stim_data)
 
+    def define_region(self, cmd):
+        self.n_regions += 1
+
+        new_region = Region
+        return None
+
     def run_command(self, cmd):
         """ Process all commands into openCARP suitable format """
 
@@ -197,19 +213,21 @@ class Simulation(object):
         for cmd in model.commands:
             cmd_name = cmd.__class__.__name__
             if cmd_name == "DryRun":
-                self.set_dry_run(cmd_name)
+                self.run_cmd = False
             elif cmd_name == "SetMesh":
                 self.set_mesh(cmd)
             elif cmd_name == "CreateMesh":
                 self.create_mesh(cmd)
+            elif cmd_name == "RegionCommand":
+                self.define_region(cmd)
             elif cmd_name == "StimulusCommand":
                 self.set_stimulus(cmd)
-            elif cmd_name == "ParameterCommand":
+            elif cmd_name == "ParamFileCommand":
                 self.param_file = cmd.param_file
             elif cmd_name == "RunCommand":
                 self.run_command(cmd)
             else:
-                raise Exception('Unexpected command received')
+                raise Exception('Unexpected command received: '.format(cmd_name))
 
 
 def main():
@@ -307,8 +325,25 @@ def parse_param_file(filename):
     return lines_dict
 
 
+def parse_region_command(cmd):
+    """ Process the data from a DefineRegion command to a Region class """
+
+    new_region = Region()
+    new_region.name = cmd.name
+
+    if "loc_units" in dir(cmd):
+        new_region.location, new_region.loc_factor, new_region.size, new_region.size_factor = \
+            parse_location_command(cmd)
+    elif "tag" in dir(cmd):
+        raise Exception("Not coded for tags yet")
+    else:
+        raise Exception("Unexpected command in RegionCommand")
+
+    return new_region
+
+
 def parse_stimulus_command(cmd):
-    """Process the data from a StimulusCommand to a Stimulus class"""
+    """ Process the data from a StimulusCommand to a Stimulus class """
 
     stim_data = Stimulus()
 
@@ -326,23 +361,40 @@ def parse_stimulus_command(cmd):
     else:
         stim_data.n_pulse = cmd.n_pulse
 
-    if cmd.loc_units == "mm":
-        stim_data.loc_factor = 1000
-    elif cmd.loc_units == "um":
-        stim_data.loc_factor = 1
-    location = [cmd.loc_x, cmd.loc_y, cmd.loc_z]
-    location = [loc * stim_data.loc_factor for loc in location]
-    stim_data.location = location
-
-    if cmd.size_units == "mm":
-        stim_data.size_factor = 1000
-    elif cmd.size_units == "um":
-        stim_data.size_factor = 1
-    size = [cmd.size_x, cmd.size_y, cmd.size_z]
-    size = [s * stim_data.size_factor for s in size]
-    stim_data.size = size
+    if cmd.loc_cmd:
+        stim_data.location, stim_data.loc_factor, stim_data.size, stim_data.size_factor = \
+            parse_location_command(cmd.loc_cmd)
+    elif cmd.region:
+        raise Exception("Uncoded so far for '{}'".format(cmd))
+    else:
+        raise Exception("Unexpected command input given in defining stimulus")
 
     return stim_data
+
+
+def parse_location_command(cmd):
+    if cmd.loc_units == "cm":
+        loc_factor = 10000
+    elif cmd.loc_units == "mm":
+        loc_factor = 1000
+    elif cmd.loc_units == "um":
+        loc_factor = 1
+    else:
+        raise Exception("Unrecognised location size")
+    location = [cmd.loc_x, cmd.loc_y, cmd.loc_z]
+    location = [loc * loc_factor for loc in location]
+
+    if cmd.size_units == "cm":
+        size_factor = 10000
+    if cmd.size_units == "mm":
+        size_factor = 1000
+    elif cmd.size_units == "um":
+        size_factor = 1
+    else:
+        raise Exception("Unrecognised size for size")
+    size = [cmd.size_x, cmd.size_y, cmd.size_z]
+    size = [s * size_factor for s in size]
+    return location, loc_factor, size, size_factor
 
 
 def prepare_stimulus_opts(stimulus) -> dict:
