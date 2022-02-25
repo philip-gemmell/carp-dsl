@@ -22,6 +22,14 @@ class CarpException(Exception):
         return self.msg
 
 
+class MeshException(CarpException):
+    def __init__(self, msg, *args):
+        super(MeshException, self).__init__(msg, args)
+
+    def __str__(self):
+        super(MeshException, self).__str__()
+
+
 class Region(object):
     def __init__(self):
         self.name = None
@@ -84,7 +92,7 @@ class Simulation(object):
             elif cmd.meshUnit == "um":
                 self.mesh_size_factor = 100
             else:
-                raise Exception('Unrecognised mesh size given')
+                raise MeshException('Unrecognised mesh size given')
 
         elif cmd.setting.lower() == "resolution":
             self.mesh_resolution = [cmd.x, cmd.y, cmd.z]
@@ -96,13 +104,13 @@ class Simulation(object):
             elif cmd.meshUnits == "um":
                 self.mesh_resolution_factor = 1
             else:
-                raise Exception('Unrecognised resolution size given')
+                raise MeshException('Unrecognised resolution size given')
 
         elif cmd.setting.lower() == "centre at":
             self.mesh_centre = [cmd.x, cmd.y, cmd.z]
 
         else:
-            raise Exception('Unexpected value given for MeshSetCmd: {}'.format(cmd.setting))
+            raise MeshException('Unexpected value given for MeshSetCmd: {}'.format(cmd.setting))
         return None
 
     def create_mesh(self, cmd):
@@ -112,9 +120,12 @@ class Simulation(object):
         if os.path.isfile(self.mesh_name+'.pts'):
             try:
                 _check_user_input("Mesh already exists - do you wish to use existing mesh? (Y/n)")
-            except Exception:
-                pass
-            return
+            except CarpException as ex:
+                _check_user_input("Do you wish to use overwrite existing mesh? (Y/n)")
+            else:
+                # Need to check the existing mesh actually works!
+                self.use_mesh()
+                return
         size = [i_size * self.mesh_size_factor for i_size in self.mesh_size]
         resolution = [i_res * self.mesh_resolution_factor for i_res in self.mesh_resolution]
         centre = [c * self.mesh_size_factor for c in self.mesh_centre]
@@ -151,6 +162,16 @@ class Simulation(object):
 
         self.mesh_tags = get_mesh_tag_list(self.mesh_name)
 
+    def use_mesh(self):
+        """ Function to check that mesh actually exists, and perform some basic checks on it """
+
+        file_exists = [os.path.exists(self.mesh_name+file_ext) for file_ext in ['.pts', '.elem', '.lon']]
+        if not all(file_exists):
+            raise MeshException("Mesh doesn't exist!")
+
+        self.mesh_tags = get_mesh_tag_list(self.mesh_name)
+        return None
+
     def set_stimulus(self, cmd):
         self.n_stim = self.n_stim + 1
         stim_data = self.parse_stimulus_command(cmd)
@@ -173,7 +194,7 @@ class Simulation(object):
 
             new_region.tag = cmd.tag_cmd.tag
         else:
-            raise Exception("Unexpected command in RegionCommand")
+            raise CarpException("Unexpected command in RegionCommand")
 
         return new_region
 
@@ -210,7 +231,7 @@ class Simulation(object):
             stim_data.size = self.regions[i_region].size
             stim_data.size_factor = self.regions[i_region].size_factor
         else:
-            raise Exception("Unexpected command input given in defining stimulus")
+            raise CarpException("Unexpected command input given in defining stimulus")
 
         return stim_data
 
@@ -233,14 +254,14 @@ class Simulation(object):
         tag_used = [True if tag in set_tags else False for tag in self.mesh_tags]
         if not all(tag_used):
             tags_unused = [i_tag for i_tag, tag in enumerate(tag_used) if tag is False]
-            raise Exception("Not all tags present in mesh used! Unused tags = {}".format(tags_unused))
+            raise MeshException("Not all tags present in mesh used! Unused tags = {}".format(tags_unused))
 
         if cmd.sim_type == "monodomain":
             bidomain_flag = "0"
         elif cmd.sim_type == "bidomain":
             bidomain_flag = "1"
         else:
-            raise Exception('Improper value passed')
+            raise CarpException('Improper value passed')
 
         stim_opts = prepare_stimulus_opts(self.stimulus)
 
@@ -310,7 +331,7 @@ class Simulation(object):
             elif cmd_name == "RunCommand":
                 self.run_command(cmd)
             else:
-                raise Exception('Unexpected command received: '.format(cmd_name))
+                raise CarpException('Unexpected command received: '.format(cmd_name))
 
 
 def main():
@@ -375,7 +396,7 @@ def _check_user_input(question: str, default: str = 'y'):
     while continue_check is None:
         continue_check = input(question) or default
         if continue_check.lower() == 'n':
-            raise Exception('Simulation aborting!')
+            raise CarpException('Simulation aborting!')
         elif continue_check.lower() == 'y':
             pass
         else:
@@ -422,7 +443,7 @@ def parse_location_command(cmd):
     elif cmd.loc_units == "um":
         loc_factor = 1
     else:
-        raise Exception("Unrecognised location size")
+        raise CarpException("Unrecognised location size")
     location = [cmd.loc_x, cmd.loc_y, cmd.loc_z]
     location = [loc * loc_factor for loc in location]
 
@@ -433,7 +454,7 @@ def parse_location_command(cmd):
     elif cmd.size_units == "um":
         size_factor = 1
     else:
-        raise Exception("Unrecognised size for size")
+        raise CarpException("Unrecognised size for size")
     size = [cmd.size_x, cmd.size_y, cmd.size_z]
     size = [s * size_factor for s in size]
     return location, loc_factor, size, size_factor

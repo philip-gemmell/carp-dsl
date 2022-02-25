@@ -2,7 +2,7 @@
 // https://opencarp.org/documentation/examples/02_ep_tissue/01_basic_usage
 
 carp_simulation:
-    dry run
+    //dry run
     set mesh size (10 x 1 x 0.2) mm
     set mesh resolution (0.1 x 0.1 x 0.1) mm
     set mesh centre at (0, 0, 0) mm
