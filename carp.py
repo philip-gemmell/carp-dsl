@@ -4,10 +4,22 @@ import os
 import string
 from itertools import compress
 import re
+import pandas as pd
 
 import sys
 
 from textx import metamodel_from_file
+
+
+class CarpException(Exception):
+    """Custom exception class to distinguish the faults we expect, compared to ones that are unintended..."""
+
+    def __init__(self, msg, *args):
+        super().__init__(args)
+        self.msg = msg
+
+    def __str__(self):
+        return self.msg
 
 
 class Region(object):
@@ -44,6 +56,7 @@ class Simulation(object):
         self.mesh_size_factor = 0.1          # mesher expects this input to be in cm, whereas our default is mm
         self.mesh_resolution_factor = 1000   # mesher expects this input to be in um, whereas our default is mm
         self.mesh_centre = [0.0, 0.0, 0.0]
+        self.mesh_tags = None
 
         # Region commands
         self.n_regions = 0
@@ -97,7 +110,10 @@ class Simulation(object):
             os.makedirs(cmd.folder)
         self.mesh_name = os.path.join(cmd.folder, cmd.name)
         if os.path.isfile(self.mesh_name+'.pts'):
-            print("Mesh already exists.")
+            try:
+                _check_user_input("Mesh already exists - do you wish to use existing mesh? (Y/n)")
+            except Exception:
+                pass
             return
         size = [i_size * self.mesh_size_factor for i_size in self.mesh_size]
         resolution = [i_res * self.mesh_resolution_factor for i_res in self.mesh_resolution]
@@ -133,11 +149,33 @@ class Simulation(object):
             mesh_str = ["/usr/local/bin/mesher"] + ['{} {}'.format(key, mesh_opts[key]) for key in mesh_opts]
             os.system(' '.join(mesh_str))
 
+        self.mesh_tags = get_mesh_tag_list(self.mesh_name)
+
     def set_stimulus(self, cmd):
         self.n_stim = self.n_stim + 1
         stim_data = self.parse_stimulus_command(cmd)
 
         self.stimulus.append(stim_data)
+
+    def parse_region_command(self, cmd):
+        """ Process the data from a DefineRegion command to a Region class """
+
+        new_region = Region()
+        new_region.name = cmd.name
+
+        if cmd.loc_cmd:
+            new_region.location, new_region.loc_factor, new_region.size, new_region.size_factor = \
+                parse_location_command(cmd.loc_cmd)
+        elif cmd.tag_cmd:
+            # Confirm tag exists in mesh
+            # TODO: Rewrite this be accommodating of varying elements - currently only handles meshes of identical elem
+            assert cmd.tag_cmd.tag in self.mesh_tags
+
+            new_region.tag = cmd.tag_cmd.tag
+        else:
+            raise Exception("Unexpected command in RegionCommand")
+
+        return new_region
 
     def parse_stimulus_command(self, cmd):
         """ Process the data from a StimulusCommand to a Stimulus class """
@@ -178,7 +216,7 @@ class Simulation(object):
 
     def define_region(self, cmd):
         self.n_regions += 1
-        new_region = parse_region_command(cmd)
+        new_region = self.parse_region_command(cmd)
 
         self.regions.append(new_region)
         return None
@@ -189,6 +227,13 @@ class Simulation(object):
         # Check if data already exists in output location, and abort if so
         if os.path.isdir(cmd.output):
             _check_user_input('Output location already exists - do you wish to continue and overwrite (Y/n)!')
+
+        # Confirm all tags in the mesh are coded for
+        set_tags = [region.tag for region in self.regions]
+        tag_used = [True if tag in set_tags else False for tag in self.mesh_tags]
+        if not all(tag_used):
+            tags_unused = [i_tag for i_tag, tag in enumerate(tag_used) if tag is False]
+            raise Exception("Not all tags present in mesh used! Unused tags = {}".format(tags_unused))
 
         if cmd.sim_type == "monodomain":
             bidomain_flag = "0"
@@ -337,6 +382,12 @@ def _check_user_input(question: str, default: str = 'y'):
             continue_check = None
 
 
+def get_mesh_tag_list(mesh_name):
+    """ Get the list of tags present in an openCARP .elem file """
+    elem = pd.read_csv(mesh_name + '.elem', sep=' ', skiprows=1, header=None)
+    return elem.iloc[:, -1].unique()
+
+
 def parse_param_file(filename):
     """ Parse the .par input file
 
@@ -361,23 +412,6 @@ def parse_param_file(filename):
     for line in lines:
         lines_dict[line[0]] = line[1]
     return lines_dict
-
-
-def parse_region_command(cmd):
-    """ Process the data from a DefineRegion command to a Region class """
-
-    new_region = Region()
-    new_region.name = cmd.name
-
-    if cmd.loc_cmd:
-        new_region.location, new_region.loc_factor, new_region.size, new_region.size_factor = \
-            parse_location_command(cmd.loc_cmd)
-    elif cmd.tag_cmd:
-        raise Exception("Not coded for tags yet")
-    else:
-        raise Exception("Unexpected command in RegionCommand")
-
-    return new_region
 
 
 def parse_location_command(cmd):
@@ -442,7 +476,7 @@ def check_param_conflicts(param_file, cmd_opts, stim_opts):
             warning_list.append('Parameter file defines stimulus currents as:')
             for i_stim in range(int(param_opts['-num_stim'])):
                 warning_list.append('\tCurrent {}:'.format(i_stim))
-                stim_match = re.compile('-stim.*[{}]'.format(0))
+                stim_match = re.compile('-stim.*[{}]'.format(i_stim))
                 matched_keys = list(filter(stim_match.match, param_opts.keys()))
                 for match_key in matched_keys:
                     warning_list.append('\t\t{} = {}'.format(match_key, param_opts[match_key]))
@@ -461,6 +495,55 @@ def check_param_conflicts(param_file, cmd_opts, stim_opts):
             print(warning)
         _check_user_input('Do you wish to continue? (Y/n)')
     return None
+
+
+# def get_mesh_centroid(uvc, elem):
+#     """ Calculate the centroids of the elements of a mesh
+#
+#     I believe that openCARP calculates whether elements are activated by a region based on the centroid of that element
+#     """
+#
+#     assert len(uvc.columns) == 4, "Make sure UVC parameters are passed to this function"
+#
+#     elem_val = elem.values
+#
+#     """ Remove region data, then reshape data """
+#     elem_val_noregion = np.delete(elem_val, 4, axis=1)
+#     elem_val_flat = elem_val_noregion.reshape(elem_val_noregion.size)
+#
+#     """ Extract centroid values, check for sign flips, then calculate means """
+#     z = uvc.loc[elem_val_flat, 0].values.reshape(elem_val_noregion.shape)
+#
+#     rho = uvc.loc[elem_val_flat, 1].values.reshape(elem_val_noregion.shape)
+#     rho_high = rho > 0.9
+#     rho_high = rho_high.any(axis=1)
+#     rho_low = rho < 0.1
+#     rho_low = rho_low.any(axis=1)
+#     rho_highlow = np.vstack([rho_high, rho_low]).transpose()
+#     rho_highlow = rho_highlow.all(axis=1)
+#     rho[rho_highlow] = 1
+#
+#     phi = uvc.loc[elem_val_flat, 2].values.reshape(elem_val_noregion.shape)
+#     phi_high = phi > math.pi-0.3
+#     phi_high = phi_high.any(axis=1)
+#     phi_low = phi < -(math.pi-0.3)
+#     phi_low = phi_low.any(axis=1)
+#     phi_highlow = np.vstack([phi_high, phi_low]).transpose()
+#     phi_highlow = phi_highlow.all(axis=1)
+#     phi[phi_highlow] = math.pi
+#
+#     v = uvc.loc[elem_val_flat, 3].values.reshape(elem_val_noregion.shape)
+#
+#     z = np.mean(z, axis=1)
+#     rho = np.mean(rho, axis=1)
+#     rho[rho > 1] = 1
+#     phi = np.mean(phi, axis=1)
+#     v = np.mean(v, axis=1)
+#     v[v != -1] = 1
+#
+#     print("Centroids of elements calculated.")
+#
+#     return np.vstack([z, rho, phi, v]).transpose()
 
 
 if __name__ == "__main__":
