@@ -135,14 +135,52 @@ class Simulation(object):
 
     def set_stimulus(self, cmd):
         self.n_stim = self.n_stim + 1
-        stim_data = parse_stimulus_command(cmd)
+        stim_data = self.parse_stimulus_command(cmd)
 
         self.stimulus.append(stim_data)
 
+    def parse_stimulus_command(self, cmd):
+        """ Process the data from a StimulusCommand to a Stimulus class """
+
+        stim_data = Stimulus()
+
+        stim_data.stim_start = cmd.start
+        stim_data.duration = cmd.duration
+        stim_data.strength = cmd.strength
+
+        if cmd.bcl == 0:
+            stim_data.bcl = None
+        else:
+            stim_data.bcl = cmd.bcl
+
+        if cmd.n_pulse == 0:
+            stim_data.n_pulse = None
+        else:
+            stim_data.n_pulse = cmd.n_pulse
+
+        if cmd.loc_cmd:
+            stim_data.location, stim_data.loc_factor, stim_data.size, stim_data.size_factor = \
+                parse_location_command(cmd.loc_cmd)
+        elif cmd.region:
+            # Check region has been defined!
+            region_names = [region.name for region in self.regions]
+            assert cmd.region in region_names, "Region {} is not defined!".format(cmd.region)
+
+            i_region = region_names.index(cmd.region)
+            stim_data.location = self.regions[i_region].location
+            stim_data.loc_factor = self.regions[i_region].loc_factor
+            stim_data.size = self.regions[i_region].size
+            stim_data.size_factor = self.regions[i_region].size_factor
+        else:
+            raise Exception("Unexpected command input given in defining stimulus")
+
+        return stim_data
+
     def define_region(self, cmd):
         self.n_regions += 1
+        new_region = parse_region_command(cmd)
 
-        new_region = Region
+        self.regions.append(new_region)
         return None
 
     def run_command(self, cmd):
@@ -331,45 +369,15 @@ def parse_region_command(cmd):
     new_region = Region()
     new_region.name = cmd.name
 
-    if "loc_units" in dir(cmd):
+    if cmd.loc_cmd:
         new_region.location, new_region.loc_factor, new_region.size, new_region.size_factor = \
-            parse_location_command(cmd)
-    elif "tag" in dir(cmd):
+            parse_location_command(cmd.loc_cmd)
+    elif cmd.tag_cmd:
         raise Exception("Not coded for tags yet")
     else:
         raise Exception("Unexpected command in RegionCommand")
 
     return new_region
-
-
-def parse_stimulus_command(cmd):
-    """ Process the data from a StimulusCommand to a Stimulus class """
-
-    stim_data = Stimulus()
-
-    stim_data.stim_start = cmd.start
-    stim_data.duration = cmd.duration
-    stim_data.strength = cmd.strength
-
-    if cmd.bcl == 0:
-        stim_data.bcl = None
-    else:
-        stim_data.bcl = cmd.bcl
-
-    if cmd.n_pulse == 0:
-        stim_data.n_pulse = None
-    else:
-        stim_data.n_pulse = cmd.n_pulse
-
-    if cmd.loc_cmd:
-        stim_data.location, stim_data.loc_factor, stim_data.size, stim_data.size_factor = \
-            parse_location_command(cmd.loc_cmd)
-    elif cmd.region:
-        raise Exception("Uncoded so far for '{}'".format(cmd))
-    else:
-        raise Exception("Unexpected command input given in defining stimulus")
-
-    return stim_data
 
 
 def parse_location_command(cmd):
@@ -386,7 +394,7 @@ def parse_location_command(cmd):
 
     if cmd.size_units == "cm":
         size_factor = 10000
-    if cmd.size_units == "mm":
+    elif cmd.size_units == "mm":
         size_factor = 1000
     elif cmd.size_units == "um":
         size_factor = 1
@@ -441,7 +449,7 @@ def check_param_conflicts(param_file, cmd_opts, stim_opts):
             warning_list.append('User commands redefine stimulus as:')
             for i_stim in range(int(cmd_opts['-num_stim'])):
                 warning_list.append('\tCurrent {}:'.format(i_stim))
-                stim_match = re.compile('-stim.*[{}]'.format(0))
+                stim_match = re.compile('-stim.*\[{}\]'.format(i_stim))
                 matched_keys = list(filter(stim_match.match, stim_opts.keys()))
                 for match_key in matched_keys:
                     warning_list.append('\t\t{} = {}'.format(match_key, stim_opts[match_key]))

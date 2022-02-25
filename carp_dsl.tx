@@ -60,7 +60,7 @@ ParamFileCommand:
 ;
 
 RegionCommand:
-    "define region" name=STRING (TagCommand | LocationCommand)
+    "define region" name=STRING (tag_cmd=TagCommand | loc_cmd=LocationCommand)
 ;
 
 TagCommand:
