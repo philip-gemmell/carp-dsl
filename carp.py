@@ -322,6 +322,9 @@ class Simulation(object):
                 self.set_mesh(cmd)
             elif cmd_name == "CreateMesh":
                 self.create_mesh(cmd)
+            elif cmd_name == "UseMesh":
+                self.mesh_name = cmd.folder
+                self.use_mesh()
             elif cmd_name == "RegionCommand":
                 self.define_region(cmd)
             elif cmd_name == "StimulusCommand":

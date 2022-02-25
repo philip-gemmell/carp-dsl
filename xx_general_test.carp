@@ -1,12 +1,12 @@
-// This is a skeleton to recreate the output for the basic tutorial provided within openCARP at
-// https://opencarp.org/documentation/examples/02_ep_tissue/01_basic_usage
+// This is a skeleton to test the functionality of carpDSL
 
 carp_simulation:
     //dry run
-    set mesh size (10 x 1 x 0.2) mm
-    set mesh resolution (0.1 x 0.1 x 0.1) mm
-    set mesh centre at (0, 0, 0) mm
-    create mesh called "01_block" in folder "meshes"
+    //set mesh size (10 x 1 x 0.2) mm
+    //set mesh resolution (0.1 x 0.1 x 0.1) mm
+    //set mesh centre at (0, 0, 0) mm
+    //create mesh called "01_block" in folder "meshes"
+    use mesh at "meshes/01_block"
 
     use input file "01_basic.par"
     define region "ventricle" using tag 1
